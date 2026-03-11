@@ -27,11 +27,6 @@
   <script>
     const WORKER_URL = "https://paco.team/api/webcams";
     const ROTATION_INTERVAL = 95000;
-    const YT_LOAD_TIMEOUT = 8000; // 8 seconds to detect YouTube failure
-
-    function isYouTubeUrl(url) {
-      return url.includes("youtube.com") || url.includes("youtu.be");
-    }
 
     function toEmbedUrl(url) {
       const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
@@ -69,67 +64,18 @@
 
         let shuffled = shuffle(webcams);
         let index = 0;
-        let rotationTimer = null;
-        let ytFailTimer = null;
 
         function next() {
-          // Clear any pending timers
-          if (rotationTimer) clearTimeout(rotationTimer);
-          if (ytFailTimer) clearTimeout(ytFailTimer);
-
-          const cam = shuffled[index];
-          const embedUrl = toEmbedUrl(cam.url);
-          frame.src = embedUrl;
-
-          // If YouTube, set a short timeout to detect failure and skip
-          if (isYouTubeUrl(cam.url)) {
-            ytFailTimer = setTimeout(() => {
-              // YouTube embed likely failed — skip to next
-              advance();
-            }, YT_LOAD_TIMEOUT);
-
-            // Listen for the YouTube postMessage API — if we get a valid
-            // message, it means the player loaded (cancel skip timer)
-            const msgHandler = (event) => {
-              if (event.origin.includes("youtube.com") && event.data) {
-                try {
-                  const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-                  // YouTube sends "onReady" or state changes when player loads successfully
-                  if (data.event === "onReady" || data.event === "infoDelivery" || data.info) {
-                    clearTimeout(ytFailTimer);
-                    window.removeEventListener("message", msgHandler);
-                  }
-                } catch (e) {
-                  // Not JSON, might still be a valid YouTube message
-                  if (typeof event.data === "string" && event.data.includes("onReady")) {
-                    clearTimeout(ytFailTimer);
-                    window.removeEventListener("message", msgHandler);
-                  }
-                }
-              }
-            };
-            window.addEventListener("message", msgHandler);
-          }
-
-          // Normal rotation timer
-          rotationTimer = setTimeout(() => {
-            advance();
-          }, ROTATION_INTERVAL);
-        }
-
-        function advance() {
-          if (rotationTimer) clearTimeout(rotationTimer);
-          if (ytFailTimer) clearTimeout(ytFailTimer);
-
+          frame.src = toEmbedUrl(shuffled[index].url);
           index++;
           if (index >= shuffled.length) {
             index = 0;
             shuffled = shuffle(webcams);
           }
-          next();
         }
 
         next();
+        setInterval(next, ROTATION_INTERVAL);
       } catch (err) {
         const el = document.getElementById("status");
         el.className = "status error";
