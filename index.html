@@ -28,12 +28,17 @@
   <div class="status" id="status">Lade Webcams…</div>
   <script>
     const WORKER_URL = "https://paco.team/api/webcams";
+    const YTSTREAM_URL = "https://paco.team/api/ytstream";
 
     function toEmbedUrl(url) {
-      const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
-      if (match) return `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1`;
-      if (url.includes("youtube.com/embed/") && !url.includes("autoplay")) {
-        return `${url}${url.includes("?") ? "&" : "?"}autoplay=1&mute=1`;
+      let videoId = null;
+      const watchMatch = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+      const embedMatch = url.match(/youtube\.com\/embed\/([^?]+)/);
+      if (watchMatch) videoId = watchMatch[1];
+      else if (embedMatch) videoId = embedMatch[1];
+
+      if (videoId) {
+        return `${YTSTREAM_URL}/${videoId}`;
       }
       return url;
     }
