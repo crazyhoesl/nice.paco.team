@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webcam Rotation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    iframe { width: 100vw; height: 100vh; border: none; }
+    .status {
+      color: #555;
+      font-family: sans-serif;
+    }
+    .status.error { color: #a33; }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">Lade Webcams…</div>
+  <iframe id="webcamFrame" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+  <script>
+    const WORKER_URL = "https://paco.team/api/webcams";
+    const ROTATION_INTERVAL = 95000;
+    const YT_LOAD_TIMEOUT = 8000; // 8 seconds to detect YouTube failure
+
+    function isYouTubeUrl(url) {
+      return url.includes("youtube.com") || url.includes("youtu.be");
+    }
+
+    function toEmbedUrl(url) {
+      const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+      if (match) return `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1`;
+      if (url.includes("youtube.com/embed/") && !url.includes("autoplay")) {
+        return `${url}${url.includes("?") ? "&" : "?"}autoplay=1&mute=1`;
+      }
+      return url;
+    }
+
+    function shuffle(array) {
+      const a = [...array];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    async function startRotation() {
+      try {
+        const res = await fetch(WORKER_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const all = await res.json();
+        const webcams = all.filter((c) => c.rotation);
+
+        if (!webcams.length) {
+          document.getElementById("status").textContent = "Keine Webcams aktiv.";
+          return;
+        }
+
+        document.getElementById("status").remove();
+        const frame = document.getElementById("webcamFrame");
+        frame.style.display = "block";
+
+        let shuffled = shuffle(webcams);
+        let index = 0;
+        let rotationTimer = null;
+        let ytFailTimer = null;
+
+        function next() {
+          // Clear any pending timers
+          if (rotationTimer) clearTimeout(rotationTimer);
+          if (ytFailTimer) clearTimeout(ytFailTimer);
+
+          const cam = shuffled[index];
+          const embedUrl = toEmbedUrl(cam.url);
+          frame.src = embedUrl;
+
+          // If YouTube, set a short timeout to detect failure and skip
+          if (isYouTubeUrl(cam.url)) {
+            ytFailTimer = setTimeout(() => {
+              // YouTube embed likely failed — skip to next
+              advance();
+            }, YT_LOAD_TIMEOUT);
+
+            // Listen for the YouTube postMessage API — if we get a valid
+            // message, it means the player loaded (cancel skip timer)
+            const msgHandler = (event) => {
+              if (event.origin.includes("youtube.com") && event.data) {
+                try {
+                  const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+                  // YouTube sends "onReady" or state changes when player loads successfully
+                  if (data.event === "onReady" || data.event === "infoDelivery" || data.info) {
+                    clearTimeout(ytFailTimer);
+                    window.removeEventListener("message", msgHandler);
+                  }
+                } catch (e) {
+                  // Not JSON, might still be a valid YouTube message
+                  if (typeof event.data === "string" && event.data.includes("onReady")) {
+                    clearTimeout(ytFailTimer);
+                    window.removeEventListener("message", msgHandler);
+                  }
+                }
+              }
+            };
+            window.addEventListener("message", msgHandler);
+          }
+
+          // Normal rotation timer
+          rotationTimer = setTimeout(() => {
+            advance();
+          }, ROTATION_INTERVAL);
+        }
+
+        function advance() {
+          if (rotationTimer) clearTimeout(rotationTimer);
+          if (ytFailTimer) clearTimeout(ytFailTimer);
+
+          index++;
+          if (index >= shuffled.length) {
+            index = 0;
+            shuffled = shuffle(webcams);
+          }
+          next();
+        }
+
+        next();
+      } catch (err) {
+        const el = document.getElementById("status");
+        el.className = "status error";
+        el.textContent = `Fehler: ${err.message}`;
+      }
+    }
+
+    startRotation();
+  </script>
+</body>
+</html>

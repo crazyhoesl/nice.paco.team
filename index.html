@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nice Cam</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      height: 100vh;
+      display: grid;
+      gap: 2px;
+    }
+    iframe { width: 100%; height: 100%; border: none; }
+    .status {
+      color: #555;
+      font-family: sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .status.error { color: #a33; }
+  </style>
+</head>
+<body>
+  <div class="status" id="status">Lade Webcams…</div>
+  <script>
+    const WORKER_URL = "https://paco.team/api/webcams";
+    const YT_LOAD_TIMEOUT = 8000;
+
+    function isYouTubeUrl(url) {
+      return url.includes("youtube.com") || url.includes("youtu.be");
+    }
+
+    function toEmbedUrl(url) {
+      const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+      if (match) return `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1`;
+      if (url.includes("youtube.com/embed/") && !url.includes("autoplay")) {
+        return `${url}${url.includes("?") ? "&" : "?"}autoplay=1&mute=1`;
+      }
+      return url;
+    }
+
+    function applyGrid(count) {
+      const cols = Math.ceil(Math.sqrt(count));
+      const rows = Math.ceil(count / cols);
+      document.body.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      document.body.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    }
+
+    async function loadWebcams() {
+      try {
+        const res = await fetch(WORKER_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const all = await res.json();
+        const webcams = all.filter((c) => c.rotation);
+
+        if (!webcams.length) {
+          document.getElementById("status").textContent = "Keine Webcams aktiv.";
+          return;
+        }
+
+        document.getElementById("status").remove();
+        applyGrid(webcams.length);
+
+        const iframes = [];
+
+        webcams.forEach((cam) => {
+          const iframe = document.createElement("iframe");
+          iframe.src = toEmbedUrl(cam.url);
+          iframe.allow = "autoplay; encrypted-media";
+          iframe.allowFullscreen = true;
+          iframe.title = cam.name;
+          iframe.dataset.youtube = isYouTubeUrl(cam.url) ? "1" : "0";
+          document.body.appendChild(iframe);
+          iframes.push(iframe);
+        });
+
+        // After timeout, hide YouTube iframes that likely failed and re-adjust grid
+        setTimeout(() => {
+          const ytFrames = iframes.filter((f) => f.dataset.youtube === "1");
+          // We can't directly detect the error inside the iframe (cross-origin),
+          // so we hide ALL YouTube iframes if there are non-YouTube ones to show.
+          // If ALL webcams are YouTube, we leave them (better than empty page).
+          const nonYtFrames = iframes.filter((f) => f.dataset.youtube === "0");
+
+          if (nonYtFrames.length > 0 && ytFrames.length > 0) {
+            ytFrames.forEach((f) => {
+              f.style.display = "none";
+            });
+            applyGrid(nonYtFrames.length);
+          }
+        }, YT_LOAD_TIMEOUT);
+      } catch (err) {
+        const el = document.getElementById("status");
+        el.className = "status error";
+        el.textContent = `Fehler: ${err.message}`;
+      }
+    }
+
+    loadWebcams();
+  </script>
+</body>
+</html>
