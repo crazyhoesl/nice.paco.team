@@ -551,6 +551,41 @@
         }
       }
 
+      /* Shortcut Link */
+      .shortcut-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+
+      .shortcut-link:hover {
+        color: var(--text-primary);
+        background: var(--status-bg);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      }
+
+      .shortcut-link:active {
+        transform: scale(0.97);
+      }
+
+      .shortcut-link svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+
       /* Responsive Anpassungen für Blobs */
       @media (max-width: 768px) {
         .blob-1 { width: 250px; height: 250px; }
@@ -632,6 +667,15 @@
       </button>
 
       <div class="status" role="status" aria-live="polite"></div>
+
+      <a class="shortcut-link" href="https://www.icloud.com/shortcuts/67f6d1d9957e43b5b620052976ce67af" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="4"/>
+          <path d="M8 12h8"/>
+          <path d="M12 8v8"/>
+        </svg>
+        Installer le raccourci Siri
+      </a>
     </div>
 
     <script>
