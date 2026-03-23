@@ -21,6 +21,7 @@
     --cat-tech: #5b8af5;
     --cat-travel: #d4a853;
     --cat-news: #e85d5d;
+    --new-badge: #4ade80;
     --transition-speed: 0.8s;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -59,8 +60,7 @@
   }
   .loading-bar-fill {
     height: 100%; width: 0%; background: var(--accent);
-    border-radius: 2px;
-    animation: loadFill 3s ease-out forwards;
+    border-radius: 2px; animation: loadFill 3s ease-out forwards;
   }
   @keyframes loadFill { to { width: 100%; } }
   .loading-status {
@@ -91,7 +91,8 @@
     letter-spacing: -0.02em;
   }
   .top-controls {
-    display: flex; align-items: center; gap: 1rem;
+    display: flex; align-items: center; gap: 0.7rem;
+    flex-wrap: wrap; justify-content: flex-end;
   }
   .category-pill {
     font-size: 0.65rem; text-transform: uppercase;
@@ -123,60 +124,102 @@
   .article-stage {
     flex: 1; display: flex; align-items: center; justify-content: center;
     padding: 0 2rem; position: relative; overflow: hidden;
-    cursor: pointer;
   }
+
   .article-card {
-    max-width: 820px; width: 100%; text-align: left;
+    max-width: 920px; width: 100%;
+    display: flex; align-items: center; gap: 2.5rem;
     position: absolute;
     transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease;
   }
-  .article-card.entering {
-    opacity: 0; transform: translateY(30px);
-  }
-  .article-card.visible {
-    opacity: 1; transform: translateY(0);
-  }
-  .article-card.exiting {
-    opacity: 0; transform: translateY(-30px);
-  }
+  .article-card.entering { opacity: 0; transform: translateY(30px); }
+  .article-card.visible { opacity: 1; transform: translateY(0); }
+  .article-card.exiting { opacity: 0; transform: translateY(-30px); }
 
+  .article-text-col { flex: 1; min-width: 0; text-align: left; }
+
+  .article-image-col {
+    flex-shrink: 0; width: 220px; height: 220px;
+    border-radius: 12px; overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .article-image-col img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .article-image-col.empty { display: none; }
+
+  .article-header {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 1.2rem; flex-wrap: wrap;
+  }
   .article-source {
     display: inline-flex; align-items: center; gap: 0.5rem;
-    margin-bottom: 1.2rem;
   }
-  .source-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-  }
+  .source-dot { width: 6px; height: 6px; border-radius: 50%; }
   .source-dot[data-cat="Tech"] { background: var(--cat-tech); }
   .source-dot[data-cat="Luxury & Travel"] { background: var(--cat-travel); }
   .source-dot[data-cat="News"] { background: var(--cat-news); }
-
   .source-name {
     font-size: 0.75rem; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--text-secondary);
-    font-weight: 500;
+    letter-spacing: 0.1em; color: var(--text-secondary); font-weight: 500;
+  }
+
+  /* ── NEW Badge ── */
+  .new-badge {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-size: 0.55rem; text-transform: uppercase;
+    letter-spacing: 0.15em; font-weight: 600;
+    color: var(--new-badge);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.08);
+    padding: 0.2rem 0.6rem; border-radius: 100px;
+    animation: badgePulse 2.5s ease infinite;
+  }
+  .new-badge::before {
+    content: ""; width: 5px; height: 5px;
+    border-radius: 50%; background: var(--new-badge);
+  }
+  @keyframes badgePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
   }
 
   .article-title {
     font-family: 'Instrument Serif', serif;
-    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-size: clamp(1.8rem, 4.5vw, 3.2rem);
     line-height: 1.15; letter-spacing: -0.02em;
     color: var(--text-primary);
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: color 0.2s ease;
   }
+  .article-title:hover { color: var(--accent); }
 
   .article-description {
-    font-size: 1.05rem; line-height: 1.65;
+    font-size: 1.02rem; line-height: 1.65;
     color: var(--text-secondary);
     max-height: 6.6rem; overflow: hidden;
     display: -webkit-box; -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
   }
 
+  .article-meta {
+    margin-top: 1.3rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
   .article-time {
-    margin-top: 1.5rem;
-    font-size: 0.75rem; color: var(--text-dim);
-    letter-spacing: 0.05em;
+    font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.05em;
+  }
+  .article-link {
+    font-size: 0.7rem; color: var(--accent);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    text-decoration: none; font-weight: 500;
+    opacity: 0.7; transition: opacity 0.2s ease; cursor: pointer;
+  }
+  .article-link:hover { opacity: 1; }
+  .views-indicator {
+    font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.04em;
   }
 
   /* ── Bottom Bar ── */
@@ -194,10 +237,8 @@
     border-radius: 2px; overflow: hidden;
   }
   .progress-fill {
-    height: 100%; width: 0%;
-    background: var(--accent);
-    border-radius: 2px;
-    transition: width 0.3s linear;
+    height: 100%; width: 0%; background: var(--accent);
+    border-radius: 2px; transition: width 0.3s linear;
   }
   .progress-fill.paused { background: var(--text-dim); }
 
@@ -215,25 +256,18 @@
   }
   .pause-dot {
     width: 5px; height: 5px; border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 2s ease infinite;
+    background: var(--accent); animation: pulse 2s ease infinite;
   }
   .pause-dot.paused { background: var(--text-dim); animation: none; }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .speed-controls {
-    display: flex; align-items: center; gap: 0.4rem;
-  }
+  .speed-controls { display: flex; align-items: center; gap: 0.3rem; }
   .speed-btn {
-    font-size: 0.65rem; color: var(--text-dim);
+    font-size: 0.58rem; color: var(--text-dim);
     background: none; border: 1px solid rgba(255,255,255,0.06);
-    padding: 0.2rem 0.5rem; border-radius: 4px;
+    padding: 0.2rem 0.4rem; border-radius: 4px;
     cursor: pointer; transition: all 0.2s ease;
-    font-family: 'DM Sans', sans-serif;
-    letter-spacing: 0.04em;
+    font-family: 'DM Sans', sans-serif; letter-spacing: 0.04em;
   }
   .speed-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text-secondary); }
   .speed-btn.active { border-color: var(--accent); color: var(--accent); }
@@ -251,17 +285,14 @@
     background: var(--bg-card);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 16px; padding: 2rem;
-    max-width: 480px; width: 90%;
-    max-height: 80vh; overflow-y: auto;
+    max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto;
   }
   .settings-title {
     font-family: 'Instrument Serif', serif;
     font-size: 1.5rem; margin-bottom: 1.5rem;
   }
-  .settings-section {
-    margin-bottom: 1.5rem;
-  }
-  .settings-section label {
+  .settings-section { margin-bottom: 1.5rem; }
+  .settings-section > label {
     font-size: 0.75rem; text-transform: uppercase;
     letter-spacing: 0.1em; color: var(--text-dim);
     display: block; margin-bottom: 0.6rem;
@@ -281,8 +312,9 @@
   .feed-item .feed-cat-dot {
     width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
   }
-  .btn-close-settings {
-    width: 100%; padding: 0.7rem;
+  .settings-actions { display: flex; gap: 0.6rem; }
+  .btn-settings-action {
+    flex: 1; padding: 0.7rem;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px; color: var(--text-primary);
@@ -290,33 +322,36 @@
     font-size: 0.85rem; cursor: pointer;
     transition: background 0.2s ease;
   }
-  .btn-close-settings:hover { background: rgba(255,255,255,0.08); }
+  .btn-settings-action:hover { background: rgba(255,255,255,0.08); }
+  .btn-settings-action.danger { color: var(--cat-news); border-color: rgba(232,93,93,0.2); }
+  .btn-settings-action.danger:hover { background: rgba(232,93,93,0.08); }
 
   /* ── Paused Overlay ── */
   .paused-indicator {
-    position: fixed;
-    top: 50%; left: 50%;
+    position: fixed; top: 50%; left: 50%;
     transform: translate(-50%, -50%) scale(0.8);
     font-family: 'Instrument Serif', serif;
     font-size: 1.2rem; color: var(--text-dim);
     letter-spacing: 0.1em; text-transform: uppercase;
-    opacity: 0; transition: all 0.4s ease;
-    pointer-events: none;
+    opacity: 0; transition: all 0.4s ease; pointer-events: none;
   }
   .paused-indicator.visible {
     opacity: 1; transform: translate(-50%, -50%) scale(1);
   }
 
-  /* ── Link overlay ── */
-  .link-hint {
-    position: fixed; bottom: calc(5rem + var(--safe-bottom));
-    left: 50%; transform: translateX(-50%);
-    font-size: 0.7rem; color: var(--text-dim);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    opacity: 0; transition: opacity 0.3s ease;
-    pointer-events: none; z-index: 20;
+  /* ── Waiting mode badge ── */
+  .waiting-badge {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--text-dim);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 0.5rem 1rem; border-radius: 8px;
+    z-index: 15; opacity: 0; transition: opacity 0.4s ease;
+    pointer-events: none;
   }
-  .link-hint.visible { opacity: 1; }
+  .waiting-badge.visible { opacity: 1; }
 
   /* ── Responsive ── */
   @media (max-width: 768px) {
@@ -325,12 +360,15 @@
     .bottom-bar { padding: 0.5rem 1.2rem 0.8rem; }
     .article-description { -webkit-line-clamp: 3; max-height: 5rem; }
     .category-pill { font-size: 0.6rem; padding: 0.3rem 0.6rem; }
+    .article-image-col { width: 160px; height: 160px; }
+    .article-card { gap: 1.5rem; }
   }
-
   @media (max-width: 480px) {
     .article-stage { padding: 0 1.2rem; }
-    .article-title { font-size: clamp(1.6rem, 7vw, 2.4rem); }
-    .article-description { font-size: 0.95rem; }
+    .article-title { font-size: clamp(1.4rem, 6vw, 2.2rem); }
+    .article-description { font-size: 0.92rem; }
+    .article-card { flex-direction: column-reverse; gap: 1rem; }
+    .article-image-col { width: 100%; height: 180px; }
   }
 </style>
 </head>
@@ -351,12 +389,15 @@
       <label>Aktive Quellen</label>
       <div class="feed-list" id="feed-list"></div>
     </div>
-    <button class="btn-close-settings" id="btn-close-settings">Schließen</button>
+    <div class="settings-actions">
+      <button class="btn-settings-action danger" id="btn-reset-views">Zähler zurücksetzen</button>
+      <button class="btn-settings-action" id="btn-close-settings">Schließen</button>
+    </div>
   </div>
 </div>
 
 <!-- App -->
-<div id="app" class="">
+<div id="app">
   <div class="top-bar">
     <div class="logo">FeedFlow</div>
     <div class="top-controls">
@@ -374,7 +415,7 @@
   </div>
 
   <div class="paused-indicator" id="paused-indicator">Pausiert</div>
-  <div class="link-hint" id="link-hint">Doppeltippen zum Öffnen</div>
+  <div class="waiting-badge" id="waiting-badge">Warte auf neue Artikel · Refresh alle 30s</div>
 
   <div class="bottom-bar">
     <div class="progress-track">
@@ -389,7 +430,9 @@
       <div class="speed-controls">
         <button class="speed-btn" data-speed="5">5s</button>
         <button class="speed-btn active" data-speed="10">10s</button>
+        <button class="speed-btn" data-speed="15">15s</button>
         <button class="speed-btn" data-speed="20">20s</button>
+        <button class="speed-btn" data-speed="25">25s</button>
         <button class="speed-btn" data-speed="30">30s</button>
       </div>
     </div>
@@ -399,7 +442,6 @@
 <script>
 // ── Feed Configuration ──
 const FEEDS = [
-  // Tech
   { url: "http://www.iphone-ticker.de/feed/", name: "iphone-ticker.de", cat: "Tech" },
   { url: "http://www.it-business.de/rss/news.xml", name: "IT-BUSINESS", cat: "Tech" },
   { url: "http://feeds.feedburner.com/Petri", name: "Petri IT", cat: "Tech" },
@@ -414,7 +456,6 @@ const FEEDS = [
   { url: "http://www.theverge.com/rss/full.xml", name: "The Verge", cat: "Tech" },
   { url: "http://blogs.msdn.com/excel/rss.xml", name: "Microsoft 365 Blog", cat: "Tech" },
   { url: "http://www.macrumors.com/macrumors.xml", name: "MacRumors", cat: "Tech" },
-  // Luxury & Travel
   { url: "http://travelguys.fr/feed/", name: "TravelGuys", cat: "Luxury & Travel" },
   { url: "https://truemilespodcast.de/feed/", name: "TRUE MILES", cat: "Luxury & Travel" },
   { url: "https://insideflyer.de/feed/", name: "InsideFlyer DE", cat: "Luxury & Travel" },
@@ -425,15 +466,17 @@ const FEEDS = [
   { url: "http://youhavebeenupgraded.boardingarea.com/feed/", name: "You Have Been Upgraded", cat: "Luxury & Travel" },
   { url: "https://milesopedia.fr/feed/", name: "Milesopedia FR", cat: "Luxury & Travel" },
   { url: "http://meilenoptimieren.com/feed/", name: "meilenoptimieren", cat: "Luxury & Travel" },
-  // News
   { url: "http://www.impulse.de/rss", name: "impulse", cat: "News" },
   { url: "https://www.wienerzeitung.at/rss.xml", name: "Wiener Zeitung", cat: "News" },
   { url: "http://www.business-punk.com/feed/", name: "Business Punk", cat: "News" },
   { url: "http://www.manager-magazin.de/news/rss/index.xml", name: "manager magazin", cat: "News" },
 ];
 
+const MAX_VIEWS = 4;
 const PROXY = "https://api.allorigins.win/raw?url=";
 const PROXY2 = "https://corsproxy.io/?url=";
+const REFRESH_NORMAL = 5 * 60 * 1000;
+const REFRESH_WAITING = 30 * 1000;
 
 // ── State ──
 let articles = [];
@@ -449,8 +492,12 @@ let disabledFeeds = new Set();
 let activeCard = "a";
 let controlsTimeout = null;
 let lastTap = 0;
+let refreshTimer = null;
+let isWaitingMode = false;
+let viewCounts = {};
+let knownArticleKeys = new Set();
+let isFirstLoad = true;
 
-// ── DOM refs ──
 const $ = id => document.getElementById(id);
 const cardA = $("card-a");
 const cardB = $("card-b");
@@ -459,18 +506,57 @@ const articleCounter = $("article-counter");
 const pauseDot = $("pause-dot");
 const statusText = $("status-text");
 const pausedIndicator = $("paused-indicator");
-const linkHint = $("link-hint");
+const waitingBadge = $("waiting-badge");
 const loadingScreen = $("loading-screen");
 const loadingStatus = $("loading-status");
 const app = $("app");
 
+// ── Persistence ──
+function saveViewCounts() {
+  try { localStorage.setItem("ff_views", JSON.stringify(viewCounts)); } catch(e) {}
+}
+function loadViewCounts() {
+  try {
+    const d = localStorage.getItem("ff_views");
+    if (d) viewCounts = JSON.parse(d);
+  } catch(e) {}
+}
+function saveKnownKeys() {
+  try {
+    // Keep max 2000 keys to avoid storage bloat
+    const arr = [...knownArticleKeys];
+    if (arr.length > 2000) knownArticleKeys = new Set(arr.slice(-2000));
+    localStorage.setItem("ff_known", JSON.stringify([...knownArticleKeys]));
+  } catch(e) {}
+}
+function loadKnownKeys() {
+  try {
+    const d = localStorage.getItem("ff_known");
+    if (d) { knownArticleKeys = new Set(JSON.parse(d)); if (knownArticleKeys.size > 0) isFirstLoad = false; }
+  } catch(e) {}
+}
+function resetAllViews() {
+  viewCounts = {};
+  knownArticleKeys = new Set();
+  isFirstLoad = true;
+  try { localStorage.removeItem("ff_views"); localStorage.removeItem("ff_known"); } catch(e) {}
+  applyFilter();
+  if (filteredArticles.length > 0) {
+    currentIndex = 0;
+    showArticle(0);
+    if (!isPaused) scheduleNext();
+  }
+}
+
 // ── Utilities ──
+function articleKey(a) {
+  return (a.title || "").substring(0, 80).toLowerCase().replace(/\s+/g, "_");
+}
 function stripHtml(html) {
   const tmp = document.createElement("div");
   tmp.innerHTML = html || "";
   return tmp.textContent.trim();
 }
-
 function timeAgo(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
@@ -482,10 +568,8 @@ function timeAgo(dateStr) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `vor ${hours} Std`;
   const days = Math.floor(hours / 24);
-  if (days === 1) return "gestern";
-  return `vor ${days} Tagen`;
+  return days === 1 ? "gestern" : `vor ${days} Tagen`;
 }
-
 function catColor(cat) {
   if (cat === "Tech") return "var(--cat-tech)";
   if (cat === "Luxury & Travel") return "var(--cat-travel)";
@@ -493,19 +577,49 @@ function catColor(cat) {
   return "var(--text-dim)";
 }
 
+// ── Image extraction ──
+function extractImage(itemEl, rawDesc) {
+  // enclosure with image type
+  const enc = itemEl.querySelector("enclosure[type^='image']");
+  if (enc) { const u = enc.getAttribute("url"); if (u) return u; }
+  // enclosure any with image extension
+  const encAny = itemEl.querySelector("enclosure[url]");
+  if (encAny) {
+    const u = encAny.getAttribute("url");
+    if (u && /\.(jpg|jpeg|png|webp|gif)/i.test(u)) return u;
+  }
+  // media:content / media:thumbnail
+  const ns = "http://search.yahoo.com/mrss/";
+  const mc = itemEl.getElementsByTagNameNS(ns, "content")[0]
+          || itemEl.getElementsByTagNameNS(ns, "thumbnail")[0];
+  if (mc) { const u = mc.getAttribute("url"); if (u) return u; }
+  // <image> child
+  const imgEl = itemEl.querySelector("image");
+  if (imgEl) {
+    const u = imgEl.querySelector("url")?.textContent?.trim() || imgEl.getAttribute("href");
+    if (u) return u;
+  }
+  // First img in description HTML
+  if (rawDesc) {
+    const m = rawDesc.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m && m[1] && !m[1].includes("feedburner") && !m[1].includes("pixel")
+        && !m[1].includes("1x1") && !m[1].includes("tracking")) {
+      return m[1];
+    }
+  }
+  return null;
+}
+
 // ── Feed Fetching ──
 async function fetchFeed(feed) {
   const encodedUrl = encodeURIComponent(feed.url);
-  // Try primary proxy, then fallback
   for (const proxy of [PROXY, PROXY2]) {
     try {
       const resp = await fetch(proxy + encodedUrl, { signal: AbortSignal.timeout(12000) });
       if (!resp.ok) continue;
       const text = await resp.text();
       return parseFeed(text, feed);
-    } catch (e) {
-      continue;
-    }
+    } catch (e) { continue; }
   }
   return [];
 }
@@ -516,56 +630,43 @@ function parseFeed(xml, feed) {
     const doc = parser.parseFromString(xml, "text/xml");
     const items = [];
 
-    // RSS 2.0
     const rssItems = doc.querySelectorAll("item");
     if (rssItems.length > 0) {
       rssItems.forEach(item => {
         const title = item.querySelector("title")?.textContent?.trim();
-        const desc = item.querySelector("description")?.textContent?.trim();
+        const rawDesc = item.querySelector("description")?.textContent || "";
+        const desc = stripHtml(rawDesc);
         const link = item.querySelector("link")?.textContent?.trim();
         const pubDate = item.querySelector("pubDate")?.textContent?.trim()
           || item.querySelector("date")?.textContent?.trim();
-        if (title) {
-          items.push({
-            title: stripHtml(title),
-            description: stripHtml(desc || ""),
-            link: link || "",
-            pubDate: pubDate || "",
-            date: pubDate ? new Date(pubDate) : new Date(0),
-            source: feed.name,
-            cat: feed.cat,
-          });
-        }
+        const image = extractImage(item, rawDesc);
+        if (title) items.push({
+          title: stripHtml(title), description: desc, link: link || "",
+          pubDate: pubDate || "", date: pubDate ? new Date(pubDate) : new Date(0),
+          source: feed.name, cat: feed.cat, image
+        });
       });
       return items;
     }
 
-    // Atom
-    const entries = doc.querySelectorAll("entry");
-    entries.forEach(entry => {
+    doc.querySelectorAll("entry").forEach(entry => {
       const title = entry.querySelector("title")?.textContent?.trim();
-      const summary = entry.querySelector("summary")?.textContent?.trim()
-        || entry.querySelector("content")?.textContent?.trim();
+      const rawContent = entry.querySelector("summary")?.textContent
+        || entry.querySelector("content")?.textContent || "";
+      const desc = stripHtml(rawContent);
       const linkEl = entry.querySelector("link[href]");
       const link = linkEl ? linkEl.getAttribute("href") : "";
       const pubDate = entry.querySelector("published")?.textContent?.trim()
         || entry.querySelector("updated")?.textContent?.trim();
-      if (title) {
-        items.push({
-          title: stripHtml(title),
-          description: stripHtml(summary || ""),
-          link, pubDate: pubDate || "",
-          date: pubDate ? new Date(pubDate) : new Date(0),
-          source: feed.name,
-          cat: feed.cat,
-        });
-      }
+      const image = extractImage(entry, rawContent);
+      if (title) items.push({
+        title: stripHtml(title), description: desc, link, pubDate: pubDate || "",
+        date: pubDate ? new Date(pubDate) : new Date(0),
+        source: feed.name, cat: feed.cat, image
+      });
     });
     return items;
-
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 }
 
 async function loadAllFeeds() {
@@ -583,53 +684,122 @@ async function loadAllFeeds() {
     loadingStatus.textContent = `${loaded} / ${total} Feeds geladen`;
   }
 
-  // Sort by date, newest first
   results.sort((a, b) => b.date - a.date);
-
-  // Deduplicate by title similarity
   const seen = new Set();
-  articles = results.filter(a => {
+  const deduped = results.filter(a => {
     const key = a.title.toLowerCase().substring(0, 60);
     if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    seen.add(key); return true;
   });
 
+  let hasNew = false;
+  deduped.forEach(a => {
+    const key = articleKey(a);
+    if (!knownArticleKeys.has(key)) {
+      if (!isFirstLoad) { a._isNew = true; hasNew = true; }
+      knownArticleKeys.add(key);
+    }
+    if (!(key in viewCounts)) viewCounts[key] = 0;
+  });
+  saveKnownKeys();
+
+  articles = deduped;
   applyFilter();
+
+  if (isWaitingMode && hasNew) {
+    isWaitingMode = false;
+    waitingBadge.classList.remove("visible");
+    scheduleRefresh(REFRESH_NORMAL);
+    const newIdx = filteredArticles.findIndex(a => a._isNew);
+    if (newIdx >= 0) {
+      currentIndex = newIdx;
+      showArticle(currentIndex);
+      if (!isPaused) scheduleNext();
+    }
+  }
+  return hasNew;
 }
 
 function applyFilter() {
-  if (activeCategory === "all") {
-    filteredArticles = [...articles];
-  } else {
-    filteredArticles = articles.filter(a => a.cat === activeCategory);
+  let pool = activeCategory === "all" ? [...articles] : articles.filter(a => a.cat === activeCategory);
+
+  // Filter out expired (viewed >= MAX_VIEWS)
+  filteredArticles = pool.filter(a => (viewCounts[articleKey(a)] || 0) < MAX_VIEWS);
+
+  if (filteredArticles.length === 0 && pool.length > 0) {
+    // All expired → show last article, enter waiting mode
+    filteredArticles = pool.slice(0, 1);
+    if (!isWaitingMode) {
+      isWaitingMode = true;
+      waitingBadge.classList.add("visible");
+      scheduleRefresh(REFRESH_WAITING);
+    }
+  } else if (filteredArticles.length > 0 && isWaitingMode) {
+    isWaitingMode = false;
+    waitingBadge.classList.remove("visible");
+    scheduleRefresh(REFRESH_NORMAL);
   }
-  currentIndex = 0;
+
+  // New articles first, then by date
+  filteredArticles.sort((a, b) => {
+    if (a._isNew && !b._isNew) return -1;
+    if (!a._isNew && b._isNew) return 1;
+    return b.date - a.date;
+  });
   updateCounter();
+}
+
+function scheduleRefresh(interval) {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(async () => {
+    await loadAllFeeds();
+    saveViewCounts();
+  }, interval);
 }
 
 // ── Display ──
 function renderArticle(card, article) {
   if (!article) {
-    card.innerHTML = `
-      <div class="article-source">
-        <div class="source-dot" style="background: var(--text-dim)"></div>
+    card.innerHTML = `<div class="article-text-col">
+      <div class="article-header"><div class="article-source">
+        <div class="source-dot" style="background:var(--text-dim)"></div>
         <span class="source-name">Keine Artikel</span>
-      </div>
+      </div></div>
       <div class="article-title">Keine Nachrichten verfügbar</div>
       <div class="article-description">Bitte überprüfe deine Feed-Einstellungen oder Internetverbindung.</div>
-    `;
+    </div><div class="article-image-col empty"></div>`;
+    card.dataset.link = "";
     return;
   }
+
+  const key = articleKey(article);
+  const views = viewCounts[key] || 0;
+  const isNew = article._isNew && views === 0;
+  const remaining = Math.max(0, MAX_VIEWS - views);
+  const descTrunc = article.description
+    ? article.description.substring(0, 350) + (article.description.length > 350 ? "…" : "")
+    : "";
+
   card.innerHTML = `
-    <div class="article-source">
-      <div class="source-dot" data-cat="${article.cat}"></div>
-      <span class="source-name">${article.source}</span>
+    <div class="article-text-col">
+      <div class="article-header">
+        <div class="article-source">
+          <div class="source-dot" data-cat="${article.cat}"></div>
+          <span class="source-name">${article.source}</span>
+        </div>
+        ${isNew ? '<span class="new-badge">NEU</span>' : ''}
+      </div>
+      <div class="article-title" data-link="${article.link || ""}">${article.title}</div>
+      ${descTrunc ? `<div class="article-description">${descTrunc}</div>` : ""}
+      <div class="article-meta">
+        <span class="article-time">${timeAgo(article.pubDate)}</span>
+        ${article.link ? `<a class="article-link" href="${article.link}" target="_blank" rel="noopener">Artikel öffnen ↗</a>` : ''}
+        <span class="views-indicator">${remaining}× verbleibend</span>
+      </div>
     </div>
-    <div class="article-title">${article.title}</div>
-    ${article.description ? `<div class="article-description">${article.description.substring(0, 350)}${article.description.length > 350 ? "…" : ""}</div>` : ""}
-    <div class="article-time">${timeAgo(article.pubDate)}</div>
-  `;
+    <div class="article-image-col ${article.image ? '' : 'empty'}">
+      ${article.image ? `<img src="${article.image}" alt="" loading="lazy" onerror="this.parentElement.classList.add('empty');this.remove();">` : ''}
+    </div>`;
   card.dataset.link = article.link || "";
 }
 
@@ -637,27 +807,38 @@ function showArticle(index, direction = 1) {
   if (filteredArticles.length === 0) return;
   currentIndex = ((index % filteredArticles.length) + filteredArticles.length) % filteredArticles.length;
   const article = filteredArticles[currentIndex];
+  const key = articleKey(article);
+
+  viewCounts[key] = (viewCounts[key] || 0) + 1;
+  saveViewCounts();
+  if (article._isNew && viewCounts[key] > 1) article._isNew = false;
 
   const current = activeCard === "a" ? cardA : cardB;
   const next = activeCard === "a" ? cardB : cardA;
-
   renderArticle(next, article);
 
-  // Transition
   next.className = "article-card entering";
-  void next.offsetWidth; // force reflow
+  void next.offsetWidth;
   current.className = "article-card exiting";
   next.className = "article-card visible";
-
   activeCard = activeCard === "a" ? "b" : "a";
   updateCounter();
+
+  // Re-filter if article just expired
+  if (viewCounts[key] >= MAX_VIEWS) {
+    setTimeout(() => {
+      applyFilter();
+      if (currentIndex >= filteredArticles.length) currentIndex = 0;
+    }, 500);
+  }
 }
 
 function updateCounter() {
   if (filteredArticles.length === 0) {
     articleCounter.textContent = "—";
   } else {
-    articleCounter.textContent = `${currentIndex + 1} / ${filteredArticles.length}`;
+    const active = filteredArticles.filter(a => (viewCounts[articleKey(a)] || 0) < MAX_VIEWS).length;
+    articleCounter.textContent = `${currentIndex + 1} / ${filteredArticles.length} · ${active} aktiv`;
   }
 }
 
@@ -665,22 +846,24 @@ function updateCounter() {
 function startProgress() {
   progressStart = Date.now();
   cancelAnimationFrame(progressRaf);
-
   function tick() {
     if (isPaused) return;
     const elapsed = Date.now() - progressStart;
     const pct = Math.min((elapsed / intervalMs) * 100, 100);
     progressFill.style.width = pct + "%";
-    if (pct < 100) {
-      progressRaf = requestAnimationFrame(tick);
-    }
+    if (pct < 100) progressRaf = requestAnimationFrame(tick);
   }
   tick();
 }
 
 function scheduleNext() {
   clearTimeout(timer);
-  if (isPaused || filteredArticles.length === 0) return;
+  if (isPaused) return;
+  if (isWaitingMode && filteredArticles.length <= 1) {
+    progressFill.style.width = "100%";
+    return;
+  }
+  if (filteredArticles.length === 0) return;
   startProgress();
   timer = setTimeout(() => {
     showArticle(currentIndex + 1);
@@ -694,17 +877,11 @@ function togglePause() {
   statusText.textContent = isPaused ? "Pausiert" : "Live";
   progressFill.className = isPaused ? "progress-fill paused" : "progress-fill";
   pausedIndicator.className = isPaused ? "paused-indicator visible" : "paused-indicator";
-
-  if (isPaused) {
-    clearTimeout(timer);
-    cancelAnimationFrame(progressRaf);
-  } else {
-    pausedIndicator.className = "paused-indicator";
-    scheduleNext();
-  }
+  if (isPaused) { clearTimeout(timer); cancelAnimationFrame(progressRaf); }
+  else { pausedIndicator.className = "paused-indicator"; scheduleNext(); }
 }
 
-// ── Controls Visibility ──
+// ── Controls ──
 function showControls() {
   app.classList.remove("controls-hidden");
   clearTimeout(controlsTimeout);
@@ -713,65 +890,49 @@ function showControls() {
   }, 4000);
 }
 
-// ── Touch Handling ──
-let touchStartX = 0;
-let touchStartY = 0;
+function openCurrentArticle() {
+  const visibleCard = cardA.classList.contains("visible") ? cardA : cardB;
+  const link = visibleCard.dataset.link;
+  if (link) window.open(link, "_blank");
+}
 
-document.getElementById("article-stage").addEventListener("touchstart", e => {
+// ── Touch ──
+let touchStartX = 0, touchStartY = 0;
+$("article-stage").addEventListener("touchstart", e => {
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
 }, { passive: true });
 
-document.getElementById("article-stage").addEventListener("touchend", e => {
+$("article-stage").addEventListener("touchend", e => {
   const dx = e.changedTouches[0].clientX - touchStartX;
   const dy = e.changedTouches[0].clientY - touchStartY;
-
-  // Swipe detection
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
-    if (dx < 0) {
-      // Swipe left → next
-      showArticle(currentIndex + 1);
-      if (!isPaused) scheduleNext();
-    } else {
-      // Swipe right → prev
-      showArticle(currentIndex - 1, -1);
-      if (!isPaused) scheduleNext();
-    }
-    showControls();
-    return;
+    showArticle(dx < 0 ? currentIndex + 1 : currentIndex - 1, dx < 0 ? 1 : -1);
+    if (!isPaused) scheduleNext();
+    showControls(); return;
   }
-
-  // Double-tap → open link
   const now = Date.now();
-  if (now - lastTap < 350) {
-    const currentCard = activeCard === "a" ? cardA : cardB;
-    // Actually the visible one is the opposite since we just swapped
-    const visibleCard = activeCard === "a" ? cardB : cardA;
-    // Try both
-    const link = cardA.classList.contains("visible") ? cardA.dataset.link : cardB.dataset.link;
-    if (link) window.open(link, "_blank");
-    lastTap = 0;
-    return;
-  }
+  if (now - lastTap < 350) { openCurrentArticle(); lastTap = 0; return; }
   lastTap = now;
-
-  // Single tap → toggle pause + show controls
   setTimeout(() => {
-    if (Date.now() - lastTap >= 340) {
-      togglePause();
-      showControls();
-    }
+    if (Date.now() - lastTap >= 340) { togglePause(); showControls(); }
   }, 360);
 }, { passive: true });
 
-// Mouse click for non-touch
-document.getElementById("article-stage").addEventListener("click", e => {
-  if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
-  togglePause();
-  showControls();
+// Click on title/link opens article
+document.addEventListener("click", e => {
+  const title = e.target.closest(".article-title");
+  if (title) { const l = title.dataset.link; if (l) window.open(l, "_blank"); return; }
+  const linkEl = e.target.closest(".article-link");
+  if (linkEl) { e.preventDefault(); window.open(linkEl.href, "_blank"); return; }
 });
 
-// Show controls on any interaction
+$("article-stage").addEventListener("click", e => {
+  if (e.target.closest(".article-title") || e.target.closest(".article-link")) return;
+  if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+  togglePause(); showControls();
+});
+
 document.addEventListener("pointermove", showControls, { passive: true });
 
 // ── Category Pills ──
@@ -780,11 +941,8 @@ document.querySelectorAll(".category-pill").forEach(pill => {
     document.querySelectorAll(".category-pill").forEach(p => p.classList.remove("active"));
     pill.classList.add("active");
     activeCategory = pill.dataset.cat;
-    applyFilter();
-    if (filteredArticles.length > 0) {
-      showArticle(0);
-      if (!isPaused) scheduleNext();
-    }
+    applyFilter(); currentIndex = 0;
+    if (filteredArticles.length > 0) { showArticle(0); if (!isPaused) scheduleNext(); }
     showControls();
   });
 });
@@ -806,15 +964,10 @@ $("btn-settings").addEventListener("click", () => {
   $("settings-overlay").classList.add("open");
   if (!isPaused) togglePause();
 });
-
-$("btn-close-settings").addEventListener("click", () => {
-  $("settings-overlay").classList.remove("open");
-});
-
+$("btn-close-settings").addEventListener("click", () => { $("settings-overlay").classList.remove("open"); });
+$("btn-reset-views").addEventListener("click", () => { resetAllViews(); $("settings-overlay").classList.remove("open"); });
 $("settings-overlay").addEventListener("click", e => {
-  if (e.target === $("settings-overlay")) {
-    $("settings-overlay").classList.remove("open");
-  }
+  if (e.target === $("settings-overlay")) $("settings-overlay").classList.remove("open");
 });
 
 function renderFeedList() {
@@ -824,59 +977,43 @@ function renderFeedList() {
       <input type="checkbox" ${disabledFeeds.has(f.url) ? "" : "checked"} data-url="${f.url}">
       <div class="feed-cat-dot" style="background: ${catColor(f.cat)}"></div>
       ${f.name}
-    </label>
-  `).join("");
-
+    </label>`).join("");
   list.querySelectorAll("input").forEach(input => {
     input.addEventListener("change", () => {
-      const url = input.dataset.url;
-      if (input.checked) {
-        disabledFeeds.delete(url);
-      } else {
-        disabledFeeds.add(url);
-      }
+      if (input.checked) disabledFeeds.delete(input.dataset.url);
+      else disabledFeeds.add(input.dataset.url);
     });
   });
 }
 
 // ── Keyboard ──
 document.addEventListener("keydown", e => {
-  if (e.key === " " || e.key === "Spacebar") {
-    e.preventDefault();
-    togglePause();
-    showControls();
-  } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-    showArticle(currentIndex + 1);
-    if (!isPaused) scheduleNext();
-    showControls();
-  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-    showArticle(currentIndex - 1, -1);
-    if (!isPaused) scheduleNext();
-    showControls();
-  }
+  if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); togglePause(); showControls(); }
+  else if (e.key === "ArrowRight" || e.key === "ArrowDown") { showArticle(currentIndex + 1); if (!isPaused) scheduleNext(); showControls(); }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { showArticle(currentIndex - 1, -1); if (!isPaused) scheduleNext(); showControls(); }
+  else if (e.key === "Enter") { openCurrentArticle(); }
 });
-
-// ── Auto-refresh feeds every 5 minutes ──
-setInterval(async () => {
-  await loadAllFeeds();
-  // Don't reset current position, just update the pool
-}, 5 * 60 * 1000);
 
 // ── Init ──
 (async function init() {
+  loadViewCounts();
+  loadKnownKeys();
   await loadAllFeeds();
   loadingScreen.classList.add("hidden");
 
   if (filteredArticles.length > 0) {
-    renderArticle(cardA, filteredArticles[0]);
+    const first = filteredArticles[0];
+    const key = articleKey(first);
+    viewCounts[key] = (viewCounts[key] || 0) + 1;
+    saveViewCounts();
+    renderArticle(cardA, first);
     updateCounter();
     scheduleNext();
   }
 
-  // Auto-hide controls after start
-  controlsTimeout = setTimeout(() => {
-    app.classList.add("controls-hidden");
-  }, 5000);
+  isFirstLoad = false;
+  scheduleRefresh(REFRESH_NORMAL);
+  controlsTimeout = setTimeout(() => { app.classList.add("controls-hidden"); }, 5000);
 })();
 </script>
 </body>
