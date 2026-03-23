@@ -810,9 +810,11 @@ function fetchWithTimeout(url, timeoutMs) {
 // ═══════════════════════════════════════════════════════════════════════════════
 async function fetchFeed(feed) {
   const encodedUrl = encodeURIComponent(feed.url);
+  const cacheBust = Date.now(); // Prevent CORS proxy from returning stale cached responses
   for (const proxy of [PROXY, PROXY2]) {
     try {
-      const resp = await fetchWithTimeout(proxy + encodedUrl, 12000);
+      const url = proxy + encodedUrl + "&_cb=" + cacheBust;
+      const resp = await fetchWithTimeout(url, 12000);
       if (!resp.ok) continue;
       const text = await resp.text();
       return parseFeed(text, feed);
@@ -916,9 +918,13 @@ async function loadAllFeeds() {
   // FIX #6: Prune stale viewCounts periodically
   pruneViewCounts();
 
+  // Save waiting state BEFORE applyFilter — applyFilter clears isWaitingMode
+  // when it finds non-expired articles, which would make the check below always fail.
+  const wasWaitingMode = isWaitingMode;
+
   applyFilter();
 
-  if (isWaitingMode && hasNew) {
+  if (wasWaitingMode && hasNew) {
     isWaitingMode = false;
     waitingBadge.classList.remove("visible");
     scheduleRefresh(REFRESH_NORMAL);
