@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FeedFlow">
+<title>FeedFlow — RSS Display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --bg-card: #111115;
+    --text-primary: #f0ede8;
+    --text-secondary: #8a8690;
+    --text-dim: #55515c;
+    --accent: #d4a853;
+    --accent-glow: rgba(212, 168, 83, 0.15);
+    --cat-tech: #5b8af5;
+    --cat-travel: #d4a853;
+    --cat-news: #e85d5d;
+    --transition-speed: 0.8s;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Loading Screen ── */
+  #loading-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  #loading-screen h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 3rem; color: var(--text-primary);
+    letter-spacing: -0.02em; margin-bottom: 1.5rem;
+  }
+  .loading-bar-track {
+    width: 200px; height: 2px;
+    background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+  }
+  .loading-bar-fill {
+    height: 100%; width: 0%; background: var(--accent);
+    border-radius: 2px;
+    animation: loadFill 3s ease-out forwards;
+  }
+  @keyframes loadFill { to { width: 100%; } }
+  .loading-status {
+    margin-top: 1.2rem; font-size: 0.8rem;
+    color: var(--text-dim); letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ── Main Container ── */
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  /* ── Top Bar ── */
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 2rem 0.8rem;
+    opacity: 0; transition: opacity 0.4s ease;
+    position: relative; z-index: 10;
+  }
+  #app:not(.controls-hidden) .top-bar { opacity: 1; }
+  .logo {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.3rem; color: var(--text-secondary);
+    letter-spacing: -0.02em;
+  }
+  .top-controls {
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .category-pill {
+    font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.12em; padding: 0.35rem 0.8rem;
+    border-radius: 100px; font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    cursor: pointer; transition: all 0.3s ease;
+  }
+  .category-pill:hover, .category-pill.active {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.15);
+    color: var(--text-primary);
+  }
+  .category-pill.active[data-cat="Tech"] { border-color: var(--cat-tech); color: var(--cat-tech); }
+  .category-pill.active[data-cat="Luxury & Travel"] { border-color: var(--cat-travel); color: var(--cat-travel); }
+  .category-pill.active[data-cat="News"] { border-color: var(--cat-news); color: var(--cat-news); }
+
+  .btn-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: transparent; color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.3s ease; font-size: 1rem;
+  }
+  .btn-icon:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+
+  /* ── Article Display ── */
+  .article-stage {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 0 2rem; position: relative; overflow: hidden;
+    cursor: pointer;
+  }
+  .article-card {
+    max-width: 820px; width: 100%; text-align: left;
+    position: absolute;
+    transition: opacity var(--transition-speed) ease, transform var(--transition-speed) ease;
+  }
+  .article-card.entering {
+    opacity: 0; transform: translateY(30px);
+  }
+  .article-card.visible {
+    opacity: 1; transform: translateY(0);
+  }
+  .article-card.exiting {
+    opacity: 0; transform: translateY(-30px);
+  }
+
+  .article-source {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 1.2rem;
+  }
+  .source-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .source-dot[data-cat="Tech"] { background: var(--cat-tech); }
+  .source-dot[data-cat="Luxury & Travel"] { background: var(--cat-travel); }
+  .source-dot[data-cat="News"] { background: var(--cat-news); }
+
+  .source-name {
+    font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .article-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.15; letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin-bottom: 1.2rem;
+  }
+
+  .article-description {
+    font-size: 1.05rem; line-height: 1.65;
+    color: var(--text-secondary);
+    max-height: 6.6rem; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+  }
+
+  .article-time {
+    margin-top: 1.5rem;
+    font-size: 0.75rem; color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Bottom Bar ── */
+  .bottom-bar {
+    padding: 0.8rem 2rem 1.2rem;
+    display: flex; flex-direction: column; gap: 0.8rem;
+    opacity: 0; transition: opacity 0.4s ease;
+    position: relative; z-index: 10;
+  }
+  #app:not(.controls-hidden) .bottom-bar { opacity: 1; }
+
+  .progress-track {
+    width: 100%; height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s linear;
+  }
+  .progress-fill.paused { background: var(--text-dim); }
+
+  .bottom-info {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .article-counter {
+    font-size: 0.7rem; color: var(--text-dim);
+    letter-spacing: 0.06em; font-variant-numeric: tabular-nums;
+  }
+  .status-indicator {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.7rem; color: var(--text-dim);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .pause-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease infinite;
+  }
+  .pause-dot.paused { background: var(--text-dim); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .speed-controls {
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .speed-btn {
+    font-size: 0.65rem; color: var(--text-dim);
+    background: none; border: 1px solid rgba(255,255,255,0.06);
+    padding: 0.2rem 0.5rem; border-radius: 4px;
+    cursor: pointer; transition: all 0.2s ease;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.04em;
+  }
+  .speed-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text-secondary); }
+  .speed-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Settings Panel ── */
+  .settings-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s ease;
+  }
+  .settings-overlay.open { display: flex; opacity: 1; }
+  .settings-panel {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 2rem;
+    max-width: 480px; width: 90%;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .settings-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .settings-section {
+    margin-bottom: 1.5rem;
+  }
+  .settings-section label {
+    font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-dim);
+    display: block; margin-bottom: 0.6rem;
+  }
+  .feed-list {
+    display: flex; flex-direction: column; gap: 0.4rem;
+    max-height: 300px; overflow-y: auto;
+  }
+  .feed-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.7rem; border-radius: 8px;
+    font-size: 0.85rem; color: var(--text-secondary);
+    cursor: pointer; transition: background 0.2s ease;
+  }
+  .feed-item:hover { background: rgba(255,255,255,0.03); }
+  .feed-item input { accent-color: var(--accent); }
+  .feed-item .feed-cat-dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+  .btn-close-settings {
+    width: 100%; padding: 0.7rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem; cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .btn-close-settings:hover { background: rgba(255,255,255,0.08); }
+
+  /* ── Paused Overlay ── */
+  .paused-indicator {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.2rem; color: var(--text-dim);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    opacity: 0; transition: all 0.4s ease;
+    pointer-events: none;
+  }
+  .paused-indicator.visible {
+    opacity: 1; transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* ── Link overlay ── */
+  .link-hint {
+    position: fixed; bottom: calc(5rem + var(--safe-bottom));
+    left: 50%; transform: translateX(-50%);
+    font-size: 0.7rem; color: var(--text-dim);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0; transition: opacity 0.3s ease;
+    pointer-events: none; z-index: 20;
+  }
+  .link-hint.visible { opacity: 1; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .top-bar { padding: 0.8rem 1.2rem 0.5rem; }
+    .article-stage { padding: 0 1.5rem; }
+    .bottom-bar { padding: 0.5rem 1.2rem 0.8rem; }
+    .article-description { -webkit-line-clamp: 3; max-height: 5rem; }
+    .category-pill { font-size: 0.6rem; padding: 0.3rem 0.6rem; }
+  }
+
+  @media (max-width: 480px) {
+    .article-stage { padding: 0 1.2rem; }
+    .article-title { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+    .article-description { font-size: 0.95rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <h1>FeedFlow</h1>
+  <div class="loading-bar-track"><div class="loading-bar-fill"></div></div>
+  <div class="loading-status" id="loading-status">Feeds laden…</div>
+</div>
+
+<!-- Settings Overlay -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-panel">
+    <div class="settings-title">Feeds</div>
+    <div class="settings-section">
+      <label>Aktive Quellen</label>
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+    <button class="btn-close-settings" id="btn-close-settings">Schließen</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="">
+  <div class="top-bar">
+    <div class="logo">FeedFlow</div>
+    <div class="top-controls">
+      <div class="category-pill active" data-cat="all">Alle</div>
+      <div class="category-pill" data-cat="Tech">Tech</div>
+      <div class="category-pill" data-cat="Luxury & Travel">Travel</div>
+      <div class="category-pill" data-cat="News">News</div>
+      <button class="btn-icon" id="btn-settings" title="Einstellungen">⚙</button>
+    </div>
+  </div>
+
+  <div class="article-stage" id="article-stage">
+    <div class="article-card visible" id="card-a"></div>
+    <div class="article-card entering" id="card-b"></div>
+  </div>
+
+  <div class="paused-indicator" id="paused-indicator">Pausiert</div>
+  <div class="link-hint" id="link-hint">Doppeltippen zum Öffnen</div>
+
+  <div class="bottom-bar">
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="bottom-info">
+      <div class="article-counter" id="article-counter">—</div>
+      <div class="status-indicator">
+        <div class="pause-dot" id="pause-dot"></div>
+        <span id="status-text">Live</span>
+      </div>
+      <div class="speed-controls">
+        <button class="speed-btn" data-speed="5">5s</button>
+        <button class="speed-btn active" data-speed="10">10s</button>
+        <button class="speed-btn" data-speed="20">20s</button>
+        <button class="speed-btn" data-speed="30">30s</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Feed Configuration ──
+const FEEDS = [
+  // Tech
+  { url: "http://www.iphone-ticker.de/feed/", name: "iphone-ticker.de", cat: "Tech" },
+  { url: "http://www.it-business.de/rss/news.xml", name: "IT-BUSINESS", cat: "Tech" },
+  { url: "http://feeds.feedburner.com/Petri", name: "Petri IT", cat: "Tech" },
+  { url: "http://www.iphoneblog.de/feed/", name: "iPhoneBlog.de", cat: "Tech" },
+  { url: "https://lazyadmin.nl/feed/", name: "LazyAdmin", cat: "Tech" },
+  { url: "http://www.fromquarkstoquasars.com/feed/", name: "Futurism", cat: "Tech" },
+  { url: "http://www.futurity.org/feed/", name: "Futurity", cat: "Tech" },
+  { url: "https://www.macg.co/news/feed", name: "MacGeneration", cat: "Tech" },
+  { url: "http://www.ifun.de/feed/", name: "ifun.de", cat: "Tech" },
+  { url: "https://www.heise.de/security/rss/alert-news.rdf", name: "heise security", cat: "Tech" },
+  { url: "http://feeds.wired.com/wired/index", name: "Wired", cat: "Tech" },
+  { url: "http://www.theverge.com/rss/full.xml", name: "The Verge", cat: "Tech" },
+  { url: "http://blogs.msdn.com/excel/rss.xml", name: "Microsoft 365 Blog", cat: "Tech" },
+  { url: "http://www.macrumors.com/macrumors.xml", name: "MacRumors", cat: "Tech" },
+  // Luxury & Travel
+  { url: "http://travelguys.fr/feed/", name: "TravelGuys", cat: "Luxury & Travel" },
+  { url: "https://truemilespodcast.de/feed/", name: "TRUE MILES", cat: "Luxury & Travel" },
+  { url: "https://insideflyer.de/feed/", name: "InsideFlyer DE", cat: "Luxury & Travel" },
+  { url: "https://loungerocker.de/feed/", name: "Loungerocker", cat: "Luxury & Travel" },
+  { url: "https://www.vielfliegertreff.de/feed/", name: "Vielfliegertreff", cat: "Luxury & Travel" },
+  { url: "http://travel-dealz.de/feed/", name: "Travel-Dealz", cat: "Luxury & Travel" },
+  { url: "https://www.upgradeguru.de/feed/", name: "Upgrade Guru", cat: "Luxury & Travel" },
+  { url: "http://youhavebeenupgraded.boardingarea.com/feed/", name: "You Have Been Upgraded", cat: "Luxury & Travel" },
+  { url: "https://milesopedia.fr/feed/", name: "Milesopedia FR", cat: "Luxury & Travel" },
+  { url: "http://meilenoptimieren.com/feed/", name: "meilenoptimieren", cat: "Luxury & Travel" },
+  // News
+  { url: "http://www.impulse.de/rss", name: "impulse", cat: "News" },
+  { url: "https://www.wienerzeitung.at/rss.xml", name: "Wiener Zeitung", cat: "News" },
+  { url: "http://www.business-punk.com/feed/", name: "Business Punk", cat: "News" },
+  { url: "http://www.manager-magazin.de/news/rss/index.xml", name: "manager magazin", cat: "News" },
+];
+
+const PROXY = "https://api.allorigins.win/raw?url=";
+const PROXY2 = "https://corsproxy.io/?url=";
+
+// ── State ──
+let articles = [];
+let filteredArticles = [];
+let currentIndex = 0;
+let isPaused = false;
+let intervalMs = 10000;
+let timer = null;
+let progressStart = 0;
+let progressRaf = null;
+let activeCategory = "all";
+let disabledFeeds = new Set();
+let activeCard = "a";
+let controlsTimeout = null;
+let lastTap = 0;
+
+// ── DOM refs ──
+const $ = id => document.getElementById(id);
+const cardA = $("card-a");
+const cardB = $("card-b");
+const progressFill = $("progress-fill");
+const articleCounter = $("article-counter");
+const pauseDot = $("pause-dot");
+const statusText = $("status-text");
+const pausedIndicator = $("paused-indicator");
+const linkHint = $("link-hint");
+const loadingScreen = $("loading-screen");
+const loadingStatus = $("loading-status");
+const app = $("app");
+
+// ── Utilities ──
+function stripHtml(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html || "";
+  return tmp.textContent.trim();
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date)) return "";
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "gerade eben";
+  if (mins < 60) return `vor ${mins} Min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `vor ${hours} Std`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "gestern";
+  return `vor ${days} Tagen`;
+}
+
+function catColor(cat) {
+  if (cat === "Tech") return "var(--cat-tech)";
+  if (cat === "Luxury & Travel") return "var(--cat-travel)";
+  if (cat === "News") return "var(--cat-news)";
+  return "var(--text-dim)";
+}
+
+// ── Feed Fetching ──
+async function fetchFeed(feed) {
+  const encodedUrl = encodeURIComponent(feed.url);
+  // Try primary proxy, then fallback
+  for (const proxy of [PROXY, PROXY2]) {
+    try {
+      const resp = await fetch(proxy + encodedUrl, { signal: AbortSignal.timeout(12000) });
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      return parseFeed(text, feed);
+    } catch (e) {
+      continue;
+    }
+  }
+  return [];
+}
+
+function parseFeed(xml, feed) {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, "text/xml");
+    const items = [];
+
+    // RSS 2.0
+    const rssItems = doc.querySelectorAll("item");
+    if (rssItems.length > 0) {
+      rssItems.forEach(item => {
+        const title = item.querySelector("title")?.textContent?.trim();
+        const desc = item.querySelector("description")?.textContent?.trim();
+        const link = item.querySelector("link")?.textContent?.trim();
+        const pubDate = item.querySelector("pubDate")?.textContent?.trim()
+          || item.querySelector("date")?.textContent?.trim();
+        if (title) {
+          items.push({
+            title: stripHtml(title),
+            description: stripHtml(desc || ""),
+            link: link || "",
+            pubDate: pubDate || "",
+            date: pubDate ? new Date(pubDate) : new Date(0),
+            source: feed.name,
+            cat: feed.cat,
+          });
+        }
+      });
+      return items;
+    }
+
+    // Atom
+    const entries = doc.querySelectorAll("entry");
+    entries.forEach(entry => {
+      const title = entry.querySelector("title")?.textContent?.trim();
+      const summary = entry.querySelector("summary")?.textContent?.trim()
+        || entry.querySelector("content")?.textContent?.trim();
+      const linkEl = entry.querySelector("link[href]");
+      const link = linkEl ? linkEl.getAttribute("href") : "";
+      const pubDate = entry.querySelector("published")?.textContent?.trim()
+        || entry.querySelector("updated")?.textContent?.trim();
+      if (title) {
+        items.push({
+          title: stripHtml(title),
+          description: stripHtml(summary || ""),
+          link, pubDate: pubDate || "",
+          date: pubDate ? new Date(pubDate) : new Date(0),
+          source: feed.name,
+          cat: feed.cat,
+        });
+      }
+    });
+    return items;
+
+  } catch (e) {
+    return [];
+  }
+}
+
+async function loadAllFeeds() {
+  const enabledFeeds = FEEDS.filter(f => !disabledFeeds.has(f.url));
+  const total = enabledFeeds.length;
+  let loaded = 0;
+  const results = [];
+
+  const batchSize = 6;
+  for (let i = 0; i < enabledFeeds.length; i += batchSize) {
+    const batch = enabledFeeds.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(f => fetchFeed(f)));
+    batchResults.forEach(r => results.push(...r));
+    loaded += batch.length;
+    loadingStatus.textContent = `${loaded} / ${total} Feeds geladen`;
+  }
+
+  // Sort by date, newest first
+  results.sort((a, b) => b.date - a.date);
+
+  // Deduplicate by title similarity
+  const seen = new Set();
+  articles = results.filter(a => {
+    const key = a.title.toLowerCase().substring(0, 60);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  applyFilter();
+}
+
+function applyFilter() {
+  if (activeCategory === "all") {
+    filteredArticles = [...articles];
+  } else {
+    filteredArticles = articles.filter(a => a.cat === activeCategory);
+  }
+  currentIndex = 0;
+  updateCounter();
+}
+
+// ── Display ──
+function renderArticle(card, article) {
+  if (!article) {
+    card.innerHTML = `
+      <div class="article-source">
+        <div class="source-dot" style="background: var(--text-dim)"></div>
+        <span class="source-name">Keine Artikel</span>
+      </div>
+      <div class="article-title">Keine Nachrichten verfügbar</div>
+      <div class="article-description">Bitte überprüfe deine Feed-Einstellungen oder Internetverbindung.</div>
+    `;
+    return;
+  }
+  card.innerHTML = `
+    <div class="article-source">
+      <div class="source-dot" data-cat="${article.cat}"></div>
+      <span class="source-name">${article.source}</span>
+    </div>
+    <div class="article-title">${article.title}</div>
+    ${article.description ? `<div class="article-description">${article.description.substring(0, 350)}${article.description.length > 350 ? "…" : ""}</div>` : ""}
+    <div class="article-time">${timeAgo(article.pubDate)}</div>
+  `;
+  card.dataset.link = article.link || "";
+}
+
+function showArticle(index, direction = 1) {
+  if (filteredArticles.length === 0) return;
+  currentIndex = ((index % filteredArticles.length) + filteredArticles.length) % filteredArticles.length;
+  const article = filteredArticles[currentIndex];
+
+  const current = activeCard === "a" ? cardA : cardB;
+  const next = activeCard === "a" ? cardB : cardA;
+
+  renderArticle(next, article);
+
+  // Transition
+  next.className = "article-card entering";
+  void next.offsetWidth; // force reflow
+  current.className = "article-card exiting";
+  next.className = "article-card visible";
+
+  activeCard = activeCard === "a" ? "b" : "a";
+  updateCounter();
+}
+
+function updateCounter() {
+  if (filteredArticles.length === 0) {
+    articleCounter.textContent = "—";
+  } else {
+    articleCounter.textContent = `${currentIndex + 1} / ${filteredArticles.length}`;
+  }
+}
+
+// ── Timer & Progress ──
+function startProgress() {
+  progressStart = Date.now();
+  cancelAnimationFrame(progressRaf);
+
+  function tick() {
+    if (isPaused) return;
+    const elapsed = Date.now() - progressStart;
+    const pct = Math.min((elapsed / intervalMs) * 100, 100);
+    progressFill.style.width = pct + "%";
+    if (pct < 100) {
+      progressRaf = requestAnimationFrame(tick);
+    }
+  }
+  tick();
+}
+
+function scheduleNext() {
+  clearTimeout(timer);
+  if (isPaused || filteredArticles.length === 0) return;
+  startProgress();
+  timer = setTimeout(() => {
+    showArticle(currentIndex + 1);
+    scheduleNext();
+  }, intervalMs);
+}
+
+function togglePause() {
+  isPaused = !isPaused;
+  pauseDot.className = isPaused ? "pause-dot paused" : "pause-dot";
+  statusText.textContent = isPaused ? "Pausiert" : "Live";
+  progressFill.className = isPaused ? "progress-fill paused" : "progress-fill";
+  pausedIndicator.className = isPaused ? "paused-indicator visible" : "paused-indicator";
+
+  if (isPaused) {
+    clearTimeout(timer);
+    cancelAnimationFrame(progressRaf);
+  } else {
+    pausedIndicator.className = "paused-indicator";
+    scheduleNext();
+  }
+}
+
+// ── Controls Visibility ──
+function showControls() {
+  app.classList.remove("controls-hidden");
+  clearTimeout(controlsTimeout);
+  controlsTimeout = setTimeout(() => {
+    if (!isPaused) app.classList.add("controls-hidden");
+  }, 4000);
+}
+
+// ── Touch Handling ──
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.getElementById("article-stage").addEventListener("touchstart", e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.getElementById("article-stage").addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+
+  // Swipe detection
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+    if (dx < 0) {
+      // Swipe left → next
+      showArticle(currentIndex + 1);
+      if (!isPaused) scheduleNext();
+    } else {
+      // Swipe right → prev
+      showArticle(currentIndex - 1, -1);
+      if (!isPaused) scheduleNext();
+    }
+    showControls();
+    return;
+  }
+
+  // Double-tap → open link
+  const now = Date.now();
+  if (now - lastTap < 350) {
+    const currentCard = activeCard === "a" ? cardA : cardB;
+    // Actually the visible one is the opposite since we just swapped
+    const visibleCard = activeCard === "a" ? cardB : cardA;
+    // Try both
+    const link = cardA.classList.contains("visible") ? cardA.dataset.link : cardB.dataset.link;
+    if (link) window.open(link, "_blank");
+    lastTap = 0;
+    return;
+  }
+  lastTap = now;
+
+  // Single tap → toggle pause + show controls
+  setTimeout(() => {
+    if (Date.now() - lastTap >= 340) {
+      togglePause();
+      showControls();
+    }
+  }, 360);
+}, { passive: true });
+
+// Mouse click for non-touch
+document.getElementById("article-stage").addEventListener("click", e => {
+  if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+  togglePause();
+  showControls();
+});
+
+// Show controls on any interaction
+document.addEventListener("pointermove", showControls, { passive: true });
+
+// ── Category Pills ──
+document.querySelectorAll(".category-pill").forEach(pill => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll(".category-pill").forEach(p => p.classList.remove("active"));
+    pill.classList.add("active");
+    activeCategory = pill.dataset.cat;
+    applyFilter();
+    if (filteredArticles.length > 0) {
+      showArticle(0);
+      if (!isPaused) scheduleNext();
+    }
+    showControls();
+  });
+});
+
+// ── Speed Controls ──
+document.querySelectorAll(".speed-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".speed-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    intervalMs = parseInt(btn.dataset.speed) * 1000;
+    if (!isPaused) scheduleNext();
+    showControls();
+  });
+});
+
+// ── Settings ──
+$("btn-settings").addEventListener("click", () => {
+  renderFeedList();
+  $("settings-overlay").classList.add("open");
+  if (!isPaused) togglePause();
+});
+
+$("btn-close-settings").addEventListener("click", () => {
+  $("settings-overlay").classList.remove("open");
+});
+
+$("settings-overlay").addEventListener("click", e => {
+  if (e.target === $("settings-overlay")) {
+    $("settings-overlay").classList.remove("open");
+  }
+});
+
+function renderFeedList() {
+  const list = $("feed-list");
+  list.innerHTML = FEEDS.map(f => `
+    <label class="feed-item">
+      <input type="checkbox" ${disabledFeeds.has(f.url) ? "" : "checked"} data-url="${f.url}">
+      <div class="feed-cat-dot" style="background: ${catColor(f.cat)}"></div>
+      ${f.name}
+    </label>
+  `).join("");
+
+  list.querySelectorAll("input").forEach(input => {
+    input.addEventListener("change", () => {
+      const url = input.dataset.url;
+      if (input.checked) {
+        disabledFeeds.delete(url);
+      } else {
+        disabledFeeds.add(url);
+      }
+    });
+  });
+}
+
+// ── Keyboard ──
+document.addEventListener("keydown", e => {
+  if (e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    togglePause();
+    showControls();
+  } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+    showArticle(currentIndex + 1);
+    if (!isPaused) scheduleNext();
+    showControls();
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    showArticle(currentIndex - 1, -1);
+    if (!isPaused) scheduleNext();
+    showControls();
+  }
+});
+
+// ── Auto-refresh feeds every 5 minutes ──
+setInterval(async () => {
+  await loadAllFeeds();
+  // Don't reset current position, just update the pool
+}, 5 * 60 * 1000);
+
+// ── Init ──
+(async function init() {
+  await loadAllFeeds();
+  loadingScreen.classList.add("hidden");
+
+  if (filteredArticles.length > 0) {
+    renderArticle(cardA, filteredArticles[0]);
+    updateCounter();
+    scheduleNext();
+  }
+
+  // Auto-hide controls after start
+  controlsTimeout = setTimeout(() => {
+    app.classList.add("controls-hidden");
+  }, 5000);
+})();
+</script>
+</body>
+</html>
