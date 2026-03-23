@@ -238,9 +238,10 @@
     background: rgba(255,255,255,0.06);
     border-radius: 2px; overflow: hidden;
   }
+  /* FIX #7: Removed CSS transition — RAF drives width directly for smooth 60fps */
   .progress-fill {
     height: 100%; width: 0%; background: var(--accent);
-    border-radius: 2px; transition: width 0.3s linear;
+    border-radius: 2px;
   }
   .progress-fill.paused { background: var(--text-dim); }
 
@@ -314,7 +315,7 @@
   .feed-item .feed-cat-dot {
     width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
   }
-  .settings-actions { display: flex; gap: 0.6rem; }
+  .settings-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
   .btn-settings-action {
     flex: 1; padding: 0.7rem;
     background: rgba(255,255,255,0.05);
@@ -323,6 +324,7 @@
     font-family: 'DM Sans', sans-serif;
     font-size: 0.85rem; cursor: pointer;
     transition: background 0.2s ease;
+    min-width: 120px;
   }
   .btn-settings-action:hover { background: rgba(255,255,255,0.08); }
   .btn-settings-action.danger { color: var(--cat-news); border-color: rgba(232,93,93,0.2); }
@@ -410,10 +412,10 @@
     opacity: 1; transform: translate(-50%, -50%) scale(1);
   }
 
-  /* ── Waiting mode badge ── */
+  /* FIX #8: Waiting badge offset below center to avoid overlap with paused indicator */
   .waiting-badge {
-    position: fixed; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    position: fixed; top: calc(50% + 2.5rem); left: 50%;
+    transform: translate(-50%, 0);
     font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 0.12em; color: var(--text-dim);
     background: rgba(255,255,255,0.03);
@@ -523,7 +525,12 @@
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// FeedFlow v3 — All 15 review fixes applied
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // ── Feed Configuration ──
+// FIX #13: Added frankfurtflyer.de with direct feed URL
 const FEEDS = [
   { url: "http://www.iphone-ticker.de/feed/", name: "iphone-ticker.de", cat: "Tech" },
   { url: "http://www.it-business.de/rss/news.xml", name: "IT-BUSINESS", cat: "Tech" },
@@ -549,6 +556,7 @@ const FEEDS = [
   { url: "http://youhavebeenupgraded.boardingarea.com/feed/", name: "You Have Been Upgraded", cat: "Luxury & Travel" },
   { url: "https://milesopedia.fr/feed/", name: "Milesopedia FR", cat: "Luxury & Travel" },
   { url: "http://meilenoptimieren.com/feed/", name: "meilenoptimieren", cat: "Luxury & Travel" },
+  { url: "https://frankfurtflyer.de/feed/", name: "Frankfurtflyer", cat: "Luxury & Travel" },
   { url: "http://www.impulse.de/rss", name: "impulse", cat: "News" },
   { url: "https://www.wienerzeitung.at/rss.xml", name: "Wiener Zeitung", cat: "News" },
   { url: "http://www.business-punk.com/feed/", name: "Business Punk", cat: "News" },
@@ -565,13 +573,14 @@ const REFRESH_WAITING = 30 * 1000;
 let articles = [];
 let filteredArticles = [];
 let currentIndex = 0;
+let currentArticleKey = null; // FIX #11: track by key, not index
 let isPaused = false;
 let intervalMs = 10000;
 let timer = null;
 let progressStart = 0;
 let progressRaf = null;
 let activeCategory = "all";
-let disabledFeeds = new Set();
+let disabledFeeds = new Set();     // FIX #4: will be persisted
 let activeCard = "a";
 let controlsTimeout = null;
 let lastTap = 0;
@@ -579,8 +588,10 @@ let refreshTimer = null;
 let isWaitingMode = false;
 let viewCounts = {};
 let knownArticleKeys = new Set();
+let newArticleKeys = new Set();    // FIX #10: persisted set of "new" keys
 let isFirstLoad = true;
-let maxAgeHours = 0; // 0 = no filter
+let isInitialLoad = true;          // FIX #12: distinguish initial vs background load
+let maxAgeHours = 0;
 
 const $ = id => document.getElementById(id);
 const cardA = $("card-a");
@@ -595,7 +606,32 @@ const loadingScreen = $("loading-screen");
 const loadingStatus = $("loading-status");
 const app = $("app");
 
-// ── Persistence ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIX #1 & #9: HTML escaping to prevent XSS from malicious feed content
+// ═══════════════════════════════════════════════════════════════════════════════
+const ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+function esc(str) {
+  return String(str).replace(/[&<>"']/g, c => ESC_MAP[c]);
+}
+
+// FIX #1: Sanitize URLs — only allow http(s) and reject javascript: etc.
+function sanitizeUrl(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return "";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIX #3: Unified key function — used for BOTH dedup and view counting
+// ═══════════════════════════════════════════════════════════════════════════════
+function articleKey(a) {
+  return (a.title || "").substring(0, 80).toLowerCase().replace(/\s+/g, "_");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Persistence — localStorage helpers
+// ═══════════════════════════════════════════════════════════════════════════════
 function saveViewCounts() {
   try { localStorage.setItem("ff_views", JSON.stringify(viewCounts)); } catch(e) {}
 }
@@ -605,9 +641,9 @@ function loadViewCounts() {
     if (d) viewCounts = JSON.parse(d);
   } catch(e) {}
 }
+
 function saveKnownKeys() {
   try {
-    // Keep max 2000 keys to avoid storage bloat
     const arr = [...knownArticleKeys];
     if (arr.length > 2000) knownArticleKeys = new Set(arr.slice(-2000));
     localStorage.setItem("ff_known", JSON.stringify([...knownArticleKeys]));
@@ -619,14 +655,59 @@ function loadKnownKeys() {
     if (d) { knownArticleKeys = new Set(JSON.parse(d)); if (knownArticleKeys.size > 0) isFirstLoad = false; }
   } catch(e) {}
 }
+
+// FIX #10: Persist newArticleKeys so _isNew survives background refreshes
+function saveNewKeys() {
+  try { localStorage.setItem("ff_new", JSON.stringify([...newArticleKeys])); } catch(e) {}
+}
+function loadNewKeys() {
+  try {
+    const d = localStorage.getItem("ff_new");
+    if (d) newArticleKeys = new Set(JSON.parse(d));
+  } catch(e) {}
+}
+
+// FIX #4: Persist disabledFeeds
+function saveDisabledFeeds() {
+  try { localStorage.setItem("ff_disabled", JSON.stringify([...disabledFeeds])); } catch(e) {}
+}
+function loadDisabledFeeds() {
+  try {
+    const d = localStorage.getItem("ff_disabled");
+    if (d) disabledFeeds = new Set(JSON.parse(d));
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIX #6: Prune viewCounts — remove keys not present in current articles
+// ═══════════════════════════════════════════════════════════════════════════════
+function pruneViewCounts() {
+  const activeKeys = new Set(articles.map(a => articleKey(a)));
+  let pruned = 0;
+  for (const k of Object.keys(viewCounts)) {
+    if (!activeKeys.has(k)) {
+      delete viewCounts[k];
+      pruned++;
+    }
+  }
+  if (pruned > 0) saveViewCounts();
+}
+
+// ── Reset / Mark-All-Read ──
 function resetAllViews() {
   viewCounts = {};
   knownArticleKeys = new Set();
+  newArticleKeys = new Set();
   isFirstLoad = true;
-  try { localStorage.removeItem("ff_views"); localStorage.removeItem("ff_known"); } catch(e) {}
+  try {
+    localStorage.removeItem("ff_views");
+    localStorage.removeItem("ff_known");
+    localStorage.removeItem("ff_new");
+  } catch(e) {}
   applyFilter();
   if (filteredArticles.length > 0) {
     currentIndex = 0;
+    currentArticleKey = articleKey(filteredArticles[0]);
     showArticle(0);
     if (!isPaused) scheduleNext();
   }
@@ -636,31 +717,31 @@ function markAllAsRead() {
   articles.forEach(a => {
     const key = articleKey(a);
     viewCounts[key] = MAX_VIEWS;
-    a._isNew = false;
+    newArticleKeys.delete(key);
   });
   saveViewCounts();
+  saveNewKeys();
   applyFilter();
-  // This will trigger waiting mode since all are expired
   if (filteredArticles.length > 0) {
     currentIndex = 0;
-    renderArticle(cardA.classList.contains("visible") ? cardA : cardB, filteredArticles[0]);
+    const visibleCard = cardA.classList.contains("visible") ? cardA : cardB;
+    renderArticle(visibleCard, filteredArticles[0]);
     updateCounter();
   }
-  // Stop rotation, enter waiting
   clearTimeout(timer);
   cancelAnimationFrame(progressRaf);
   progressFill.style.width = "100%";
 }
 
-// ── Utilities ──
-function articleKey(a) {
-  return (a.title || "").substring(0, 80).toLowerCase().replace(/\s+/g, "_");
-}
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════════════════════════════════
 function stripHtml(html) {
   const tmp = document.createElement("div");
   tmp.innerHTML = html || "";
   return tmp.textContent.trim();
 }
+
 function timeAgo(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
@@ -674,6 +755,7 @@ function timeAgo(dateStr) {
   const days = Math.floor(hours / 24);
   return days === 1 ? "gestern" : `vor ${days} Tagen`;
 }
+
 function catColor(cat) {
   if (cat === "Tech") return "var(--cat-tech)";
   if (cat === "Luxury & Travel") return "var(--cat-travel)";
@@ -683,27 +765,22 @@ function catColor(cat) {
 
 // ── Image extraction ──
 function extractImage(itemEl, rawDesc) {
-  // enclosure with image type
   const enc = itemEl.querySelector("enclosure[type^='image']");
   if (enc) { const u = enc.getAttribute("url"); if (u) return u; }
-  // enclosure any with image extension
   const encAny = itemEl.querySelector("enclosure[url]");
   if (encAny) {
     const u = encAny.getAttribute("url");
     if (u && /\.(jpg|jpeg|png|webp|gif)/i.test(u)) return u;
   }
-  // media:content / media:thumbnail
   const ns = "http://search.yahoo.com/mrss/";
   const mc = itemEl.getElementsByTagNameNS(ns, "content")[0]
           || itemEl.getElementsByTagNameNS(ns, "thumbnail")[0];
   if (mc) { const u = mc.getAttribute("url"); if (u) return u; }
-  // <image> child
   const imgEl = itemEl.querySelector("image");
   if (imgEl) {
     const u = imgEl.querySelector("url")?.textContent?.trim() || imgEl.getAttribute("href");
     if (u) return u;
   }
-  // First img in description HTML
   if (rawDesc) {
     const m = rawDesc.match(/<img[^>]+src=["']([^"']+)["']/i);
     if (m && m[1] && !m[1].includes("feedburner") && !m[1].includes("pixel")
@@ -714,12 +791,23 @@ function extractImage(itemEl, rawDesc) {
   return null;
 }
 
-// ── Feed Fetching ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIX #14: AbortSignal.timeout fallback for older iPadOS
+// ═══════════════════════════════════════════════════════════════════════════════
+function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timerId));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Feed Fetching & Parsing
+// ═══════════════════════════════════════════════════════════════════════════════
 async function fetchFeed(feed) {
   const encodedUrl = encodeURIComponent(feed.url);
   for (const proxy of [PROXY, PROXY2]) {
     try {
-      const resp = await fetch(proxy + encodedUrl, { signal: AbortSignal.timeout(12000) });
+      const resp = await fetchWithTimeout(proxy + encodedUrl, 12000);
       if (!resp.ok) continue;
       const text = await resp.text();
       return parseFeed(text, feed);
@@ -745,9 +833,9 @@ function parseFeed(xml, feed) {
           || item.querySelector("date")?.textContent?.trim();
         const image = extractImage(item, rawDesc);
         if (title) items.push({
-          title: stripHtml(title), description: desc, link: link || "",
+          title: stripHtml(title), description: desc, link: sanitizeUrl(link),
           pubDate: pubDate || "", date: pubDate ? new Date(pubDate) : new Date(0),
-          source: feed.name, cat: feed.cat, image
+          source: feed.name, cat: feed.cat, image: sanitizeUrl(image)
         });
       });
       return items;
@@ -764,9 +852,9 @@ function parseFeed(xml, feed) {
         || entry.querySelector("updated")?.textContent?.trim();
       const image = extractImage(entry, rawContent);
       if (title) items.push({
-        title: stripHtml(title), description: desc, link, pubDate: pubDate || "",
-        date: pubDate ? new Date(pubDate) : new Date(0),
-        source: feed.name, cat: feed.cat, image
+        title: stripHtml(title), description: desc, link: sanitizeUrl(link),
+        pubDate: pubDate || "", date: pubDate ? new Date(pubDate) : new Date(0),
+        source: feed.name, cat: feed.cat, image: sanitizeUrl(image)
       });
     });
     return items;
@@ -785,38 +873,54 @@ async function loadAllFeeds() {
     const batchResults = await Promise.all(batch.map(f => fetchFeed(f)));
     batchResults.forEach(r => results.push(...r));
     loaded += batch.length;
-    loadingStatus.textContent = `${loaded} / ${total} Feeds geladen`;
+    // FIX #12: Only update loading status during initial load
+    if (isInitialLoad) {
+      loadingStatus.textContent = `${loaded} / ${total} Feeds geladen`;
+    }
   }
 
   results.sort((a, b) => b.date - a.date);
+
+  // FIX #3: Dedup uses the same articleKey() function as view counting
   const seen = new Set();
   const deduped = results.filter(a => {
-    const key = a.title.toLowerCase().substring(0, 60);
+    const key = articleKey(a);
     if (seen.has(key)) return false;
-    seen.add(key); return true;
+    seen.add(key);
+    return true;
   });
 
+  // FIX #10: Detect new articles, persist in newArticleKeys set
   let hasNew = false;
   deduped.forEach(a => {
     const key = articleKey(a);
     if (!knownArticleKeys.has(key)) {
-      if (!isFirstLoad) { a._isNew = true; hasNew = true; }
+      if (!isFirstLoad) {
+        newArticleKeys.add(key);
+        hasNew = true;
+      }
       knownArticleKeys.add(key);
     }
     if (!(key in viewCounts)) viewCounts[key] = 0;
   });
   saveKnownKeys();
+  if (hasNew) saveNewKeys();
 
   articles = deduped;
+
+  // FIX #6: Prune stale viewCounts periodically
+  pruneViewCounts();
+
   applyFilter();
 
   if (isWaitingMode && hasNew) {
     isWaitingMode = false;
     waitingBadge.classList.remove("visible");
     scheduleRefresh(REFRESH_NORMAL);
-    const newIdx = filteredArticles.findIndex(a => a._isNew);
+    const newIdx = filteredArticles.findIndex(a => newArticleKeys.has(articleKey(a)));
     if (newIdx >= 0) {
       currentIndex = newIdx;
+      currentArticleKey = articleKey(filteredArticles[newIdx]);
       showArticle(currentIndex);
       if (!isPaused) scheduleNext();
     }
@@ -824,20 +928,23 @@ async function loadAllFeeds() {
   return hasNew;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Filtering & Sorting
+// ═══════════════════════════════════════════════════════════════════════════════
 function applyFilter() {
+  // FIX #11: Remember current article key before re-filtering
+  const prevKey = currentArticleKey;
+
   let pool = activeCategory === "all" ? [...articles] : articles.filter(a => a.cat === activeCategory);
 
-  // Time filter
   if (maxAgeHours > 0) {
     const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000);
     pool = pool.filter(a => a.date.getTime() > cutoff);
   }
 
-  // Filter out expired (viewed >= MAX_VIEWS)
   filteredArticles = pool.filter(a => (viewCounts[articleKey(a)] || 0) < MAX_VIEWS);
 
   if (filteredArticles.length === 0 && pool.length > 0) {
-    // All expired → show last article, enter waiting mode
     filteredArticles = pool.slice(0, 1);
     if (!isWaitingMode) {
       isWaitingMode = true;
@@ -850,12 +957,25 @@ function applyFilter() {
     scheduleRefresh(REFRESH_NORMAL);
   }
 
-  // New articles first, then by date
+  // FIX #10: Use persisted newArticleKeys for isNew check
   filteredArticles.sort((a, b) => {
-    if (a._isNew && !b._isNew) return -1;
-    if (!a._isNew && b._isNew) return 1;
+    const aNew = newArticleKeys.has(articleKey(a));
+    const bNew = newArticleKeys.has(articleKey(b));
+    if (aNew && !bNew) return -1;
+    if (!aNew && bNew) return 1;
     return b.date - a.date;
   });
+
+  // FIX #11: Restore currentIndex to the same article after re-sort
+  if (prevKey && filteredArticles.length > 0) {
+    const restoredIdx = filteredArticles.findIndex(a => articleKey(a) === prevKey);
+    if (restoredIdx >= 0) {
+      currentIndex = restoredIdx;
+    } else if (currentIndex >= filteredArticles.length) {
+      currentIndex = 0;
+    }
+  }
+
   updateCounter();
 }
 
@@ -867,7 +987,9 @@ function scheduleRefresh(interval) {
   }, interval);
 }
 
-// ── Display ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// Display — FIX #1, #9: All dynamic content is escaped via esc()
+// ═══════════════════════════════════════════════════════════════════════════════
 function renderArticle(card, article) {
   if (!article) {
     card.innerHTML = `<div class="article-text-col">
@@ -884,33 +1006,57 @@ function renderArticle(card, article) {
 
   const key = articleKey(article);
   const views = viewCounts[key] || 0;
-  const isNew = article._isNew && views === 0;
+  // FIX #10: Check persisted newArticleKeys, not transient _isNew flag
+  const isNew = newArticleKeys.has(key) && views === 0;
   const remaining = Math.max(0, MAX_VIEWS - views);
-  const descTrunc = article.description
-    ? article.description.substring(0, 350) + (article.description.length > 350 ? "…" : "")
-    : "";
+
+  // FIX #9: Description is text-only (stripHtml already applied), but escape for safety
+  const descText = article.description || "";
+  const descTrunc = descText.length > 350 ? descText.substring(0, 350) + "…" : descText;
+
+  // FIX #1: All dynamic values escaped
+  const safeTitle = esc(article.title);
+  const safeSource = esc(article.source);
+  const safeLink = esc(sanitizeUrl(article.link));
+  const safeCat = esc(article.cat);
+  const safeImage = esc(sanitizeUrl(article.image));
+  const safeDesc = esc(descTrunc);
 
   card.innerHTML = `
     <div class="article-text-col">
       <div class="article-header">
         <div class="article-source">
-          <div class="source-dot" data-cat="${article.cat}"></div>
-          <span class="source-name">${article.source}</span>
+          <div class="source-dot" data-cat="${safeCat}"></div>
+          <span class="source-name">${safeSource}</span>
         </div>
         ${isNew ? '<span class="new-badge">NEU</span>' : ''}
       </div>
-      <div class="article-title" data-link="${article.link || ""}">${article.title}</div>
-      ${descTrunc ? `<div class="article-description">${descTrunc}</div>` : ""}
+      <div class="article-title" data-link="${safeLink}">${safeTitle}</div>
+      ${safeDesc ? `<div class="article-description">${safeDesc}</div>` : ""}
       <div class="article-meta">
-        <span class="article-time">${timeAgo(article.pubDate)}</span>
-        ${article.link ? `<a class="article-link" href="${article.link}" target="_blank" rel="noopener">Artikel öffnen ↗</a>` : ''}
+        <span class="article-time">${esc(timeAgo(article.pubDate))}</span>
+        ${safeLink ? `<a class="article-link" href="${safeLink}" target="_blank" rel="noopener noreferrer">Artikel öffnen ↗</a>` : ''}
         <span class="views-indicator">${remaining}× verbleibend</span>
       </div>
     </div>
-    <div class="article-image-col ${article.image ? '' : 'empty'}">
-      ${article.image ? `<img src="${article.image}" alt="" loading="lazy" onerror="this.parentElement.classList.add('empty');this.remove();">` : ''}
+    <div class="article-image-col ${safeImage ? '' : 'empty'}" id="imgcol-${card.id}">
+      ${safeImage ? `<img src="${safeImage}" alt="" loading="lazy" id="img-${card.id}">` : ''}
     </div>`;
-  card.dataset.link = article.link || "";
+
+  card.dataset.link = sanitizeUrl(article.link) || "";
+
+  // FIX #15: Attach image error handler via JS instead of inline onerror
+  if (safeImage) {
+    const imgEl = card.querySelector(`#img-${card.id}`);
+    if (imgEl) {
+      imgEl.addEventListener("error", function handleImgErr() {
+        imgEl.removeEventListener("error", handleImgErr);
+        const col = card.querySelector(`#imgcol-${card.id}`);
+        if (col) col.classList.add("empty");
+        imgEl.remove();
+      }, { once: true });
+    }
+  }
 }
 
 function showArticle(index, direction = 1) {
@@ -919,9 +1065,18 @@ function showArticle(index, direction = 1) {
   const article = filteredArticles[currentIndex];
   const key = articleKey(article);
 
+  // Count view
   viewCounts[key] = (viewCounts[key] || 0) + 1;
   saveViewCounts();
-  if (article._isNew && viewCounts[key] > 1) article._isNew = false;
+
+  // FIX #10: Remove from newArticleKeys after second view (first view shows badge)
+  if (newArticleKeys.has(key) && viewCounts[key] > 1) {
+    newArticleKeys.delete(key);
+    saveNewKeys();
+  }
+
+  // FIX #11: Track current article by key
+  currentArticleKey = key;
 
   const current = activeCard === "a" ? cardA : cardB;
   const next = activeCard === "a" ? cardB : cardA;
@@ -936,10 +1091,7 @@ function showArticle(index, direction = 1) {
 
   // Re-filter if article just expired
   if (viewCounts[key] >= MAX_VIEWS) {
-    setTimeout(() => {
-      applyFilter();
-      if (currentIndex >= filteredArticles.length) currentIndex = 0;
-    }, 500);
+    setTimeout(() => applyFilter(), 500);
   }
 }
 
@@ -953,7 +1105,9 @@ function updateCounter() {
   }
 }
 
-// ── Timer & Progress ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// Timer & Progress — FIX #7: No CSS transition, pure RAF for smooth bar
+// ═══════════════════════════════════════════════════════════════════════════════
 function startProgress() {
   progressStart = Date.now();
   cancelAnimationFrame(progressRaf);
@@ -1007,7 +1161,9 @@ function openCurrentArticle() {
   if (link) window.open(link, "_blank");
 }
 
-// ── Touch ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// Touch & Click Handling
+// ═══════════════════════════════════════════════════════════════════════════════
 let touchStartX = 0, touchStartY = 0;
 $("article-stage").addEventListener("touchstart", e => {
   touchStartX = e.touches[0].clientX;
@@ -1030,7 +1186,6 @@ $("article-stage").addEventListener("touchend", e => {
   }, 360);
 }, { passive: true });
 
-// Click on title/link opens article
 document.addEventListener("click", e => {
   const title = e.target.closest(".article-title");
   if (title) { const l = title.dataset.link; if (l) window.open(l, "_blank"); return; }
@@ -1052,8 +1207,14 @@ document.querySelectorAll(".category-pill").forEach(pill => {
     document.querySelectorAll(".category-pill").forEach(p => p.classList.remove("active"));
     pill.classList.add("active");
     activeCategory = pill.dataset.cat;
-    applyFilter(); currentIndex = 0;
-    if (filteredArticles.length > 0) { showArticle(0); if (!isPaused) scheduleNext(); }
+    currentArticleKey = null; // reset tracking on category switch
+    applyFilter();
+    currentIndex = 0;
+    if (filteredArticles.length > 0) {
+      currentArticleKey = articleKey(filteredArticles[0]);
+      showArticle(0);
+      if (!isPaused) scheduleNext();
+    }
     showControls();
   });
 });
@@ -1069,15 +1230,48 @@ document.querySelectorAll(".speed-btn").forEach(btn => {
   });
 });
 
-// ── Settings ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// Settings — FIX #5: Re-apply feeds on close, auto-unpause
+// ═══════════════════════════════════════════════════════════════════════════════
+let settingsWasPaused = false;
+
 $("btn-settings").addEventListener("click", () => {
   renderFeedList();
   $("settings-overlay").classList.add("open");
+  settingsWasPaused = isPaused;
   if (!isPaused) togglePause();
 });
-$("btn-close-settings").addEventListener("click", () => { $("settings-overlay").classList.remove("open"); });
-$("btn-reset-views").addEventListener("click", () => { resetAllViews(); $("settings-overlay").classList.remove("open"); });
-$("btn-mark-all-read").addEventListener("click", () => { markAllAsRead(); $("settings-overlay").classList.remove("open"); });
+
+$("btn-close-settings").addEventListener("click", closeSettings);
+$("btn-reset-views").addEventListener("click", () => { resetAllViews(); closeSettings(); });
+$("btn-mark-all-read").addEventListener("click", () => { markAllAsRead(); closeSettings(); });
+
+function closeSettings() {
+  $("settings-overlay").classList.remove("open");
+
+  // FIX #4: Persist disabled feeds
+  saveDisabledFeeds();
+
+  // FIX #5: Re-load feeds with new settings immediately
+  (async () => {
+    await loadAllFeeds();
+    if (filteredArticles.length > 0 && currentIndex >= filteredArticles.length) {
+      currentIndex = 0;
+      currentArticleKey = articleKey(filteredArticles[0]);
+    }
+    if (filteredArticles.length > 0) {
+      showArticle(currentIndex);
+    }
+    // FIX #5: Restore pause state — unpause if user wasn't manually paused
+    if (!settingsWasPaused && isPaused) {
+      togglePause();
+    }
+  })();
+}
+
+$("settings-overlay").addEventListener("click", e => {
+  if (e.target === $("settings-overlay")) closeSettings();
+});
 
 // ── Time Filter ──
 document.querySelectorAll(".time-filter-btn").forEach(btn => {
@@ -1086,22 +1280,25 @@ document.querySelectorAll(".time-filter-btn").forEach(btn => {
     btn.classList.add("active");
     maxAgeHours = parseInt(btn.dataset.hours) || 0;
     try { localStorage.setItem("ff_maxAgeHours", maxAgeHours); } catch(e) {}
+    currentArticleKey = null;
     applyFilter();
     currentIndex = 0;
-    if (filteredArticles.length > 0) { showArticle(0); if (!isPaused) scheduleNext(); }
+    if (filteredArticles.length > 0) {
+      currentArticleKey = articleKey(filteredArticles[0]);
+      showArticle(0);
+      if (!isPaused) scheduleNext();
+    }
   });
-});
-$("settings-overlay").addEventListener("click", e => {
-  if (e.target === $("settings-overlay")) $("settings-overlay").classList.remove("open");
 });
 
 function renderFeedList() {
   const list = $("feed-list");
+  // FIX #1: Escape feed names in settings list
   list.innerHTML = FEEDS.map(f => `
     <label class="feed-item">
-      <input type="checkbox" ${disabledFeeds.has(f.url) ? "" : "checked"} data-url="${f.url}">
+      <input type="checkbox" ${disabledFeeds.has(f.url) ? "" : "checked"} data-url="${esc(f.url)}">
       <div class="feed-cat-dot" style="background: ${catColor(f.cat)}"></div>
-      ${f.name}
+      ${esc(f.name)}
     </label>`).join("");
   list.querySelectorAll("input").forEach(input => {
     input.addEventListener("change", () => {
@@ -1119,10 +1316,15 @@ document.addEventListener("keydown", e => {
   else if (e.key === "Enter") { openCurrentArticle(); }
 });
 
-// ── Init ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// Init — FIX #2: First article rendered without double-counting
+// ═══════════════════════════════════════════════════════════════════════════════
 (async function init() {
   loadViewCounts();
   loadKnownKeys();
+  loadNewKeys();
+  loadDisabledFeeds();  // FIX #4
+
   // Load time filter preference
   try {
     const savedAge = localStorage.getItem("ff_maxAgeHours");
@@ -1133,16 +1335,17 @@ document.addEventListener("keydown", e => {
       });
     }
   } catch(e) {}
+
   await loadAllFeeds();
+  isInitialLoad = false; // FIX #12: Background refreshes won't touch loading UI
   loadingScreen.classList.add("hidden");
 
   if (filteredArticles.length > 0) {
-    const first = filteredArticles[0];
-    const key = articleKey(first);
-    viewCounts[key] = (viewCounts[key] || 0) + 1;
-    saveViewCounts();
-    renderArticle(cardA, first);
-    updateCounter();
+    // FIX #2: Use showArticle() which handles view counting consistently
+    // No separate manual increment — showArticle does +1
+    currentIndex = 0;
+    currentArticleKey = articleKey(filteredArticles[0]);
+    showArticle(0);
     scheduleNext();
   }
 
