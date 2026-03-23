@@ -564,8 +564,8 @@ const FEEDS = [
 ];
 
 const MAX_VIEWS = 4;
-const PROXY = "https://api.allorigins.win/raw?url=";
-const PROXY2 = "https://corsproxy.io/?url=";
+const RSS2JSON = "https://api.rss2json.com/v1/api.json?rss_url=";
+const PROXY_FALLBACK = "https://api.allorigins.win/raw?url=";
 const REFRESH_NORMAL = 5 * 60 * 1000;
 const REFRESH_WAITING = 30 * 1000;
 
@@ -809,21 +809,75 @@ function fetchWithTimeout(url, timeoutMs) {
 // Feed Fetching & Parsing
 // ═══════════════════════════════════════════════════════════════════════════════
 async function fetchFeed(feed) {
-  const encodedUrl = encodeURIComponent(feed.url);
-  const cacheBust = Date.now(); // Prevent CORS proxy from returning stale cached responses
-  for (const proxy of [PROXY, PROXY2]) {
-    try {
-      const url = proxy + encodedUrl + "&_cb=" + cacheBust;
-      const resp = await fetchWithTimeout(url, 12000);
-      if (!resp.ok) continue;
+  // Strategy 1: rss2json.com — returns structured JSON, most reliable
+  try {
+    const url = RSS2JSON + encodeURIComponent(feed.url);
+    const resp = await fetchWithTimeout(url, 15000);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.status === "ok" && data.items && data.items.length > 0) {
+        return parseRss2Json(data, feed);
+      }
+    }
+  } catch (e) { /* fall through to fallback */ }
+
+  // Strategy 2: allorigins.win — returns raw XML
+  try {
+    const url = PROXY_FALLBACK + encodeURIComponent(feed.url) + "&_cb=" + Date.now();
+    const resp = await fetchWithTimeout(url, 12000);
+    if (resp.ok) {
       const text = await resp.text();
-      return parseFeed(text, feed);
-    } catch (e) { continue; }
-  }
+      if (text.length > 100) return parseFeedXml(text, feed);
+    }
+  } catch (e) { /* give up */ }
+
   return [];
 }
 
-function parseFeed(xml, feed) {
+// Parse rss2json.com JSON response
+function parseRss2Json(data, feed) {
+  const items = [];
+  for (const item of (data.items || [])) {
+    const title = (item.title || "").trim();
+    if (!title) continue;
+
+    const desc = stripHtml(item.description || item.content || "");
+    const link = sanitizeUrl(item.link);
+    const pubDate = item.pubDate || "";
+    
+    // rss2json provides thumbnail and enclosure.link
+    let image = sanitizeUrl(item.thumbnail) || "";
+    if (!image && item.enclosure && item.enclosure.link) {
+      const encLink = item.enclosure.link;
+      if (/\.(jpg|jpeg|png|webp|gif)/i.test(encLink) || (item.enclosure.type || "").startsWith("image")) {
+        image = sanitizeUrl(encLink);
+      }
+    }
+    // Fallback: extract first img from description/content HTML
+    if (!image) {
+      const raw = item.description || item.content || "";
+      const m = raw.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m && m[1] && !m[1].includes("feedburner") && !m[1].includes("pixel")
+          && !m[1].includes("1x1") && !m[1].includes("tracking")) {
+        image = sanitizeUrl(m[1]);
+      }
+    }
+
+    items.push({
+      title: stripHtml(title),
+      description: desc,
+      link,
+      pubDate,
+      date: pubDate ? new Date(pubDate) : new Date(0),
+      source: feed.name,
+      cat: feed.cat,
+      image,
+    });
+  }
+  return items;
+}
+
+function parseFeedXml(xml, feed) {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xml, "text/xml");
