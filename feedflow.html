@@ -143,6 +143,7 @@
     border-radius: 12px; overflow: hidden;
     background: var(--bg-card);
     border: 1px solid rgba(255,255,255,0.04);
+    will-change: transform;
   }
   .article-image-col img {
     width: 100%; height: 100%; object-fit: cover; display: block;
@@ -193,6 +194,7 @@
     margin-bottom: 1rem;
     cursor: pointer;
     transition: color 0.2s ease;
+    will-change: transform;
   }
   .article-title:hover { color: var(--accent); }
 
@@ -325,6 +327,62 @@
   .btn-settings-action:hover { background: rgba(255,255,255,0.08); }
   .btn-settings-action.danger { color: var(--cat-news); border-color: rgba(232,93,93,0.2); }
   .btn-settings-action.danger:hover { background: rgba(232,93,93,0.08); }
+  .btn-settings-action.primary { color: var(--accent); border-color: rgba(212,168,83,0.3); }
+  .btn-settings-action.primary:hover { background: var(--accent-glow); }
+
+  /* ── Floating Animation ── */
+  .article-card.visible .article-title {
+    animation: floatTitle 8s ease-in-out infinite;
+  }
+  .article-card.visible .article-description {
+    animation: floatDesc 10s ease-in-out infinite;
+  }
+  .article-card.visible .article-meta {
+    animation: floatMeta 9s ease-in-out infinite;
+  }
+  .article-card.visible .article-header {
+    animation: floatHeader 11s ease-in-out infinite;
+  }
+  .article-card.visible .article-image-col {
+    animation: floatImage 12s ease-in-out infinite;
+  }
+
+  @keyframes floatTitle {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(2px, -3px); }
+    50% { transform: translate(-1px, -5px); }
+    75% { transform: translate(-3px, -2px); }
+  }
+  @keyframes floatDesc {
+    0%, 100% { transform: translate(0, 0); }
+    30% { transform: translate(-2px, 3px); }
+    60% { transform: translate(3px, 1px); }
+    80% { transform: translate(1px, -2px); }
+  }
+  @keyframes floatMeta {
+    0%, 100% { transform: translate(0, 0); }
+    35% { transform: translate(2px, 2px); }
+    65% { transform: translate(-2px, -1px); }
+  }
+  @keyframes floatHeader {
+    0%, 100% { transform: translate(0, 0); }
+    40% { transform: translate(-1px, -2px); }
+    70% { transform: translate(2px, 1px); }
+  }
+  @keyframes floatImage {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    20% { transform: translate(3px, -4px) scale(1.005); }
+    50% { transform: translate(-2px, -6px) scale(1.01); }
+    80% { transform: translate(4px, -2px) scale(1.005); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .article-card.visible .article-title,
+    .article-card.visible .article-description,
+    .article-card.visible .article-meta,
+    .article-card.visible .article-header,
+    .article-card.visible .article-image-col { animation: none; }
+  }
 
   .time-filter-options {
     display: flex; gap: 0.4rem; flex-wrap: wrap;
@@ -414,6 +472,7 @@
       <div class="feed-list" id="feed-list"></div>
     </div>
     <div class="settings-actions">
+      <button class="btn-settings-action primary" id="btn-mark-all-read">Alles gelesen</button>
       <button class="btn-settings-action danger" id="btn-reset-views">Zähler zurücksetzen</button>
       <button class="btn-settings-action" id="btn-close-settings">Schließen</button>
     </div>
@@ -571,6 +630,26 @@ function resetAllViews() {
     showArticle(0);
     if (!isPaused) scheduleNext();
   }
+}
+
+function markAllAsRead() {
+  articles.forEach(a => {
+    const key = articleKey(a);
+    viewCounts[key] = MAX_VIEWS;
+    a._isNew = false;
+  });
+  saveViewCounts();
+  applyFilter();
+  // This will trigger waiting mode since all are expired
+  if (filteredArticles.length > 0) {
+    currentIndex = 0;
+    renderArticle(cardA.classList.contains("visible") ? cardA : cardB, filteredArticles[0]);
+    updateCounter();
+  }
+  // Stop rotation, enter waiting
+  clearTimeout(timer);
+  cancelAnimationFrame(progressRaf);
+  progressFill.style.width = "100%";
 }
 
 // ── Utilities ──
@@ -998,6 +1077,7 @@ $("btn-settings").addEventListener("click", () => {
 });
 $("btn-close-settings").addEventListener("click", () => { $("settings-overlay").classList.remove("open"); });
 $("btn-reset-views").addEventListener("click", () => { resetAllViews(); $("settings-overlay").classList.remove("open"); });
+$("btn-mark-all-read").addEventListener("click", () => { markAllAsRead(); $("settings-overlay").classList.remove("open"); });
 
 // ── Time Filter ──
 document.querySelectorAll(".time-filter-btn").forEach(btn => {
