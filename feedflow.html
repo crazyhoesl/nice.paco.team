@@ -704,6 +704,11 @@ function resetAllViews() {
     localStorage.removeItem("ff_known");
     localStorage.removeItem("ff_new");
   } catch(e) {}
+  // Re-populate knownArticleKeys from current articles so they aren't
+  // falsely detected as "new" on the next background refresh.
+  articles.forEach(a => knownArticleKeys.add(articleKey(a)));
+  saveKnownKeys();
+  isFirstLoad = false;
   applyFilter();
   if (filteredArticles.length > 0) {
     currentIndex = 0;
@@ -1049,8 +1054,7 @@ function renderArticle(card, article) {
   if (safeImage) {
     const imgEl = card.querySelector(`#img-${card.id}`);
     if (imgEl) {
-      imgEl.addEventListener("error", function handleImgErr() {
-        imgEl.removeEventListener("error", handleImgErr);
+      imgEl.addEventListener("error", function() {
         const col = card.querySelector(`#imgcol-${card.id}`);
         if (col) col.classList.add("empty");
         imgEl.remove();
