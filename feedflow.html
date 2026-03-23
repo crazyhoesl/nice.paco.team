@@ -326,6 +326,19 @@
   .btn-settings-action.danger { color: var(--cat-news); border-color: rgba(232,93,93,0.2); }
   .btn-settings-action.danger:hover { background: rgba(232,93,93,0.08); }
 
+  .time-filter-options {
+    display: flex; gap: 0.4rem; flex-wrap: wrap;
+  }
+  .time-filter-btn {
+    font-size: 0.78rem; color: var(--text-secondary);
+    background: none; border: 1px solid rgba(255,255,255,0.08);
+    padding: 0.4rem 0.8rem; border-radius: 8px;
+    cursor: pointer; transition: all 0.2s ease;
+    font-family: 'DM Sans', sans-serif; letter-spacing: 0.03em;
+  }
+  .time-filter-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+  .time-filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
   /* ── Paused Overlay ── */
   .paused-indicator {
     position: fixed; top: 50%; left: 50%;
@@ -385,6 +398,17 @@
 <div class="settings-overlay" id="settings-overlay">
   <div class="settings-panel">
     <div class="settings-title">Feeds</div>
+    <div class="settings-section">
+      <label>Zeitfilter</label>
+      <div class="time-filter-options" id="time-filter-options">
+        <button class="time-filter-btn active" data-hours="0">Alle</button>
+        <button class="time-filter-btn" data-hours="6">6h</button>
+        <button class="time-filter-btn" data-hours="12">12h</button>
+        <button class="time-filter-btn" data-hours="24">24h</button>
+        <button class="time-filter-btn" data-hours="48">48h</button>
+        <button class="time-filter-btn" data-hours="168">7 Tage</button>
+      </div>
+    </div>
     <div class="settings-section">
       <label>Aktive Quellen</label>
       <div class="feed-list" id="feed-list"></div>
@@ -497,6 +521,7 @@ let isWaitingMode = false;
 let viewCounts = {};
 let knownArticleKeys = new Set();
 let isFirstLoad = true;
+let maxAgeHours = 0; // 0 = no filter
 
 const $ = id => document.getElementById(id);
 const cardA = $("card-a");
@@ -723,6 +748,12 @@ async function loadAllFeeds() {
 function applyFilter() {
   let pool = activeCategory === "all" ? [...articles] : articles.filter(a => a.cat === activeCategory);
 
+  // Time filter
+  if (maxAgeHours > 0) {
+    const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000);
+    pool = pool.filter(a => a.date.getTime() > cutoff);
+  }
+
   // Filter out expired (viewed >= MAX_VIEWS)
   filteredArticles = pool.filter(a => (viewCounts[articleKey(a)] || 0) < MAX_VIEWS);
 
@@ -838,7 +869,8 @@ function updateCounter() {
     articleCounter.textContent = "—";
   } else {
     const active = filteredArticles.filter(a => (viewCounts[articleKey(a)] || 0) < MAX_VIEWS).length;
-    articleCounter.textContent = `${currentIndex + 1} / ${filteredArticles.length} · ${active} aktiv`;
+    const timeLabel = maxAgeHours > 0 ? ` · ${maxAgeHours}h` : "";
+    articleCounter.textContent = `${currentIndex + 1} / ${filteredArticles.length} · ${active} aktiv${timeLabel}`;
   }
 }
 
@@ -966,6 +998,19 @@ $("btn-settings").addEventListener("click", () => {
 });
 $("btn-close-settings").addEventListener("click", () => { $("settings-overlay").classList.remove("open"); });
 $("btn-reset-views").addEventListener("click", () => { resetAllViews(); $("settings-overlay").classList.remove("open"); });
+
+// ── Time Filter ──
+document.querySelectorAll(".time-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".time-filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    maxAgeHours = parseInt(btn.dataset.hours) || 0;
+    try { localStorage.setItem("ff_maxAgeHours", maxAgeHours); } catch(e) {}
+    applyFilter();
+    currentIndex = 0;
+    if (filteredArticles.length > 0) { showArticle(0); if (!isPaused) scheduleNext(); }
+  });
+});
 $("settings-overlay").addEventListener("click", e => {
   if (e.target === $("settings-overlay")) $("settings-overlay").classList.remove("open");
 });
@@ -998,6 +1043,16 @@ document.addEventListener("keydown", e => {
 (async function init() {
   loadViewCounts();
   loadKnownKeys();
+  // Load time filter preference
+  try {
+    const savedAge = localStorage.getItem("ff_maxAgeHours");
+    if (savedAge !== null) {
+      maxAgeHours = parseInt(savedAge) || 0;
+      document.querySelectorAll(".time-filter-btn").forEach(b => {
+        b.classList.toggle("active", parseInt(b.dataset.hours) === maxAgeHours);
+      });
+    }
+  } catch(e) {}
   await loadAllFeeds();
   loadingScreen.classList.add("hidden");
 
