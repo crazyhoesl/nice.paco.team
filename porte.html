@@ -11,8 +11,8 @@
     <style>
       /* CSS Custom Properties für Themes */
       :root {
-        --bg-gradient-1: #667eea;
-        --bg-gradient-2: #764ba2;
+        --bg-gradient-1: #0a1628;
+        --bg-gradient-2: #1a3a5c;
         --btn-gradient-1: #ff6b35;
         --btn-gradient-2: #f7931e;
         --btn-hover-1: #ff7b45;
@@ -25,16 +25,19 @@
         --offline-bg: rgba(244, 67, 54, 0.9);
         --success-bg: rgba(76, 175, 80, 0.9);
         --error-bg: rgba(244, 67, 54, 0.9);
-        /* Animated background colors */
-        --blob-1: rgba(102, 126, 234, 0.6);
-        --blob-2: rgba(118, 75, 162, 0.5);
-        --blob-3: rgba(255, 107, 53, 0.4);
-        --blob-4: rgba(247, 147, 30, 0.3);
+        /* Animated background colors - ocean blues */
+        --blob-1: rgba(30, 100, 220, 0.5);
+        --blob-2: rgba(0, 180, 220, 0.4);
+        --blob-3: rgba(60, 60, 200, 0.35);
+        --blob-4: rgba(0, 140, 255, 0.3);
+        --blob-5: rgba(100, 200, 255, 0.25);
+        --blob-6: rgba(20, 60, 180, 0.4);
+        --blob-7: rgba(0, 220, 180, 0.2);
       }
 
       [data-theme="dark"] {
-        --bg-gradient-1: #0f0f1a;
-        --bg-gradient-2: #1a1a2e;
+        --bg-gradient-1: #020a18;
+        --bg-gradient-2: #0a1a30;
         --btn-gradient-1: #ff6b35;
         --btn-gradient-2: #f7931e;
         --btn-hover-1: #ff7b45;
@@ -44,11 +47,13 @@
         --text-secondary: rgba(255, 255, 255, 0.6);
         --status-bg: rgba(255, 255, 255, 0.1);
         --card-bg: rgba(255, 255, 255, 0.05);
-        /* Dark mode blob colors - more subtle */
-        --blob-1: rgba(102, 126, 234, 0.2);
-        --blob-2: rgba(118, 75, 162, 0.15);
-        --blob-3: rgba(255, 107, 53, 0.15);
-        --blob-4: rgba(147, 51, 234, 0.1);
+        --blob-1: rgba(30, 100, 220, 0.15);
+        --blob-2: rgba(0, 180, 220, 0.12);
+        --blob-3: rgba(60, 60, 200, 0.1);
+        --blob-4: rgba(0, 140, 255, 0.1);
+        --blob-5: rgba(100, 200, 255, 0.08);
+        --blob-6: rgba(20, 60, 180, 0.12);
+        --blob-7: rgba(0, 220, 180, 0.08);
       }
 
       /* Reset und Basis-Styles */
@@ -135,11 +140,42 @@
       .blob-5 {
         width: 200px;
         height: 200px;
-        background: var(--blob-2);
+        background: var(--blob-5);
         bottom: 20%;
         right: 20%;
         animation-delay: -8s;
         animation-duration: 24s;
+      }
+
+      .blob-6 {
+        width: 320px;
+        height: 320px;
+        background: var(--blob-6);
+        top: 60%;
+        left: -80px;
+        animation: float2 26s ease-in-out infinite;
+        animation-delay: -3s;
+      }
+
+      .blob-7 {
+        width: 180px;
+        height: 180px;
+        background: var(--blob-7);
+        top: 10%;
+        right: 15%;
+        animation: float2 18s ease-in-out infinite;
+        animation-delay: -12s;
+      }
+
+      .blob-8 {
+        width: 260px;
+        height: 260px;
+        background: var(--blob-1);
+        opacity: 0.5;
+        bottom: 10%;
+        right: -60px;
+        animation: float 30s ease-in-out infinite;
+        animation-delay: -20s;
       }
 
       @keyframes float {
@@ -157,6 +193,44 @@
         }
       }
 
+      @keyframes float2 {
+        0%, 100% {
+          transform: translate(0, 0) scale(1) rotate(0deg);
+        }
+        20% {
+          transform: translate(-60px, 40px) scale(1.15) rotate(-8deg);
+        }
+        40% {
+          transform: translate(30px, -70px) scale(0.9) rotate(4deg);
+        }
+        60% {
+          transform: translate(-40px, -30px) scale(1.08) rotate(-3deg);
+        }
+        80% {
+          transform: translate(50px, 50px) scale(0.95) rotate(6deg);
+        }
+      }
+
+      /* Floating light streaks */
+      .light-streak {
+        position: absolute;
+        width: 2px;
+        height: 80px;
+        background: linear-gradient(to bottom, transparent, rgba(100, 200, 255, 0.4), transparent);
+        border-radius: 2px;
+        animation: streak 8s linear infinite;
+        opacity: 0;
+      }
+      @keyframes streak {
+        0% { transform: translateY(100vh) rotate(15deg); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-100vh) rotate(15deg); opacity: 0; }
+      }
+      [data-theme="dark"] .light-streak {
+        background: linear-gradient(to bottom, transparent, rgba(100, 200, 255, 0.15), transparent);
+      }
+
       /* Subtile Partikel */
       .particles {
         position: absolute;
@@ -168,13 +242,13 @@
         position: absolute;
         width: 4px;
         height: 4px;
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(150, 210, 255, 0.4);
         border-radius: 50%;
         animation: drift 15s ease-in-out infinite;
       }
 
       [data-theme="dark"] .particle {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(150, 210, 255, 0.2);
       }
 
       @keyframes drift {
@@ -375,23 +449,30 @@
 
       /* Tor-Icon */
       .gate-icon {
-        width: 32px;
-        height: 32px;
+        width: 52px;
+        height: 44px;
         transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .gate-left, .gate-right {
-        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        transform-origin: center;
+        transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
-      /* Animation wenn Tor öffnet */
+      .gate-left {
+        transform-origin: 5px 24px;
+      }
+
+      .gate-right {
+        transform-origin: 43px 24px;
+      }
+
+      /* Animation wenn Tor öffnet - Flügel schwingen nach außen */
       #trigger.opening .gate-left {
-        transform: rotate(-35deg) translateX(-3px);
+        transform: perspective(200px) rotateY(55deg);
       }
 
       #trigger.opening .gate-right {
-        transform: rotate(35deg) translateX(3px);
+        transform: perspective(200px) rotateY(-55deg);
       }
 
       #trigger.success .gate-icon {
@@ -594,9 +675,89 @@
         .blob-4 { width: 150px; height: 150px; }
         .blob-5 { width: 120px; height: 120px; }
       }
+      /* Migration Banner */
+      .migration-banner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: linear-gradient(135deg, #e65100, #ff8f00);
+        color: #fff;
+        padding: 12px 16px;
+        text-align: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      }
+      .migration-banner a {
+        color: #fff;
+        font-weight: 700;
+        text-decoration: underline;
+        word-break: break-all;
+      }
+      .migration-banner .banner-new-url {
+        display: inline-block;
+        margin-top: 4px;
+        background: rgba(255,255,255,0.2);
+        padding: 2px 10px;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
+      }
+      body { padding-top: 80px; }
+      @media (min-width: 600px) { body { padding-top: 56px; } }
+
+      /* Language Selector */
+      .lang-selector {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        z-index: 999;
+        display: flex;
+        gap: 4px;
+        background: var(--card-bg);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        padding: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      }
+      .lang-selector button {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 5px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .lang-selector button.active {
+        background: rgba(255,255,255,0.2);
+        color: var(--text-primary);
+      }
+      .lang-selector button:hover { color: var(--text-primary); }
     </style>
   </head>
   <body>
+    <!-- Migration Banner -->
+    <div class="migration-banner" id="migration-banner">
+      <span data-i18n="banner"></span>
+      <br>
+      <a class="banner-new-url" href="https://lespaco.short.gy/porte">lespaco.short.gy/porte</a>
+    </div>
+
+    <!-- Language Selector -->
+    <div class="lang-selector" id="lang-selector">
+      <button data-lang="fr">FR</button>
+      <button data-lang="en">EN</button>
+      <button data-lang="de">DE</button>
+      <button data-lang="uk">UA</button>
+    </div>
+
     <!-- Animated Background -->
     <div class="animated-bg">
       <div class="blob blob-1"></div>
@@ -604,7 +765,11 @@
       <div class="blob blob-3"></div>
       <div class="blob blob-4"></div>
       <div class="blob blob-5"></div>
+      <div class="blob blob-6"></div>
+      <div class="blob blob-7"></div>
+      <div class="blob blob-8"></div>
       <div class="particles" id="particles"></div>
+      <div class="light-streaks" id="light-streaks"></div>
     </div>
 
     <!-- Offline Banner -->
@@ -618,7 +783,7 @@
         <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
         <line x1="12" y1="20" x2="12.01" y2="20"></line>
       </svg>
-      Hors ligne - Vérifiez votre connexion
+      <span data-i18n="offline">Hors ligne - Vérifiez votre connexion</span>
     </div>
 
     <!-- Theme Toggle -->
@@ -646,24 +811,56 @@
         </div>
       </div>
 
-      <p class="title">Commande du portail</p>
+      <p class="title" data-i18n="title">Commande du portail</p>
 
       <button
         id="trigger"
         aria-label="Ouvrir le portail"
         role="button"
       >
-        <!-- Animiertes Tor-Icon -->
-        <svg class="gate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 21h18"/>
-          <path d="M5 21V7l7-4 7 4v14"/>
-          <path class="gate-left" d="M9 21v-8h1v8"/>
-          <path class="gate-right" d="M14 21v-8h1v8"/>
-          <path d="M9 9h1"/>
-          <path d="M14 9h1"/>
+        <!-- Doppelflügeltor-Icon -->
+        <svg class="gate-icon" viewBox="0 0 48 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <!-- Pfosten links + rechts -->
+          <rect x="2" y="4" width="3" height="36" rx="1" fill="currentColor" opacity="0.3" stroke="none"/>
+          <rect x="43" y="4" width="3" height="36" rx="1" fill="currentColor" opacity="0.3" stroke="none"/>
+          <line x1="3.5" y1="4" x2="3.5" y2="40"/>
+          <line x1="44.5" y1="4" x2="44.5" y2="40"/>
+          <!-- Pfostenköpfe -->
+          <circle cx="3.5" cy="4" r="2" fill="currentColor" opacity="0.5" stroke="currentColor"/>
+          <circle cx="44.5" cy="4" r="2" fill="currentColor" opacity="0.5" stroke="currentColor"/>
+          <!-- Linker Torflügel -->
+          <g class="gate-left">
+            <rect x="5" y="8" width="18" height="32" rx="1" fill="currentColor" opacity="0.08" stroke="currentColor"/>
+            <line x1="9" y1="8" x2="9" y2="40" opacity="0.4"/>
+            <line x1="14" y1="8" x2="14" y2="40" opacity="0.4"/>
+            <line x1="19" y1="8" x2="19" y2="40" opacity="0.4"/>
+            <line x1="5" y1="16" x2="23" y2="16" opacity="0.3"/>
+            <line x1="5" y1="28" x2="23" y2="28" opacity="0.3"/>
+            <!-- Pfeilspitzen oben -->
+            <path d="M7 8 L7 5 L6 6.5" opacity="0.5"/>
+            <path d="M11.5 8 L11.5 4 L10.5 5.5" opacity="0.5"/>
+            <path d="M16.5 8 L16.5 4 L15.5 5.5" opacity="0.5"/>
+            <path d="M21 8 L21 5 L20 6.5" opacity="0.5"/>
+          </g>
+          <!-- Rechter Torflügel -->
+          <g class="gate-right">
+            <rect x="25" y="8" width="18" height="32" rx="1" fill="currentColor" opacity="0.08" stroke="currentColor"/>
+            <line x1="29" y1="8" x2="29" y2="40" opacity="0.4"/>
+            <line x1="34" y1="8" x2="34" y2="40" opacity="0.4"/>
+            <line x1="39" y1="8" x2="39" y2="40" opacity="0.4"/>
+            <line x1="25" y1="16" x2="43" y2="16" opacity="0.3"/>
+            <line x1="25" y1="28" x2="43" y2="28" opacity="0.3"/>
+            <!-- Pfeilspitzen oben -->
+            <path d="M27 8 L27 5 L28 6.5" opacity="0.5"/>
+            <path d="M31.5 8 L31.5 4 L32.5 5.5" opacity="0.5"/>
+            <path d="M36.5 8 L36.5 4 L37.5 5.5" opacity="0.5"/>
+            <path d="M41 8 L41 5 L42 6.5" opacity="0.5"/>
+          </g>
+          <!-- Boden -->
+          <line x1="0" y1="40" x2="48" y2="40" opacity="0.5"/>
         </svg>
         <span class="spinner" aria-hidden="true"></span>
-        <span class="btn-text">Ouvrir le portail</span>
+        <span class="btn-text" data-i18n="openGate">Ouvrir le portail</span>
       </button>
 
       <div class="status" role="status" aria-live="polite"></div>
@@ -674,7 +871,7 @@
           <path d="M8 12h8"/>
           <path d="M12 8v8"/>
         </svg>
-        Installer le raccourci Siri
+        <span data-i18n="installShortcut">Installer le raccourci Siri</span>
       </a>
     </div>
 
@@ -699,13 +896,98 @@
         // Webhook URL
         const WEBHOOK_URL = 'https://pacohome.ide-duck.ts.net/api/webhook/open-porte-116-iPh8HYyBLH4_2K-W9j_bIE5s';
 
+        // ==================== I18N ====================
+        const translations = {
+          fr: {
+            title: 'Commande du portail',
+            openGate: 'Ouvrir le portail',
+            installShortcut: 'Installer le raccourci Siri',
+            offline: 'Hors ligne - Vérifiez votre connexion',
+            success: 'Le portail s\'ouvre !',
+            error: 'Erreur de connexion. Réessayez.',
+            noInternet: 'Pas de connexion internet',
+            weatherUnavailable: 'Indisponible',
+            banner: '⚠️ Cette page sera désactivée en août 2026. Nouvelle adresse\u00A0:',
+          },
+          en: {
+            title: 'Gate control',
+            openGate: 'Open the gate',
+            installShortcut: 'Install Siri shortcut',
+            offline: 'Offline - Check your connection',
+            success: 'The gate is opening!',
+            error: 'Connection error. Try again.',
+            noInternet: 'No internet connection',
+            weatherUnavailable: 'Unavailable',
+            banner: '⚠️ This page will be deactivated in August 2026. New address:',
+          },
+          de: {
+            title: 'Torsteuerung',
+            openGate: 'Tor öffnen',
+            installShortcut: 'Siri-Kurzbefehl installieren',
+            offline: 'Offline - Verbindung prüfen',
+            success: 'Das Tor öffnet sich!',
+            error: 'Verbindungsfehler. Erneut versuchen.',
+            noInternet: 'Keine Internetverbindung',
+            weatherUnavailable: 'Nicht verfügbar',
+            banner: '⚠️ Diese Seite wird im August 2026 abgeschaltet. Neue Adresse:',
+          },
+          uk: {
+            title: 'Керування воротами',
+            openGate: 'Відкрити ворота',
+            installShortcut: 'Встановити команду Siri',
+            offline: 'Офлайн - Перевірте з\'єднання',
+            success: 'Ворота відкриваються!',
+            error: 'Помилка з\'єднання. Спробуйте ще.',
+            noInternet: 'Немає інтернету',
+            weatherUnavailable: 'Недоступно',
+            banner: '⚠️ Цю сторінку буде вимкнено у серпні 2026. Нова адреса:',
+          }
+        };
+
+        let currentLang = 'fr';
+
+        function detectLanguage() {
+          const nav = (navigator.language || navigator.userLanguage || 'fr').toLowerCase();
+          if (nav.startsWith('de')) return 'de';
+          if (nav.startsWith('en')) return 'en';
+          if (nav.startsWith('uk') || nav.startsWith('ua')) return 'uk';
+          return 'fr';
+        }
+
+        function t(key) {
+          return (translations[currentLang] || translations.fr)[key] || translations.fr[key] || key;
+        }
+
+        function applyLanguage(lang) {
+          currentLang = lang;
+          document.documentElement.lang = lang === 'uk' ? 'uk' : lang;
+          document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = t(el.dataset.i18n);
+          });
+          trigger.setAttribute('aria-label', t('openGate'));
+          // Update language selector active state
+          document.querySelectorAll('.lang-selector button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === lang);
+          });
+          localStorage.setItem('lang', lang);
+        }
+
+        function initLanguage() {
+          const saved = localStorage.getItem('lang');
+          const lang = saved || detectLanguage();
+          applyLanguage(lang);
+          document.querySelectorAll('.lang-selector button').forEach(btn => {
+            btn.addEventListener('click', () => applyLanguage(btn.dataset.lang));
+          });
+        }
+
         // Nizza Koordinaten für Wetter
         const NICE_LAT = 43.7102;
         const NICE_LON = 7.2620;
 
         // ==================== PARTICLES ====================
         function createParticles() {
-          const particleCount = 20;
+          const particleCount = 35;
 
           for (let i = 0; i < particleCount; i++) {
             const particle = document.createElement('div');
@@ -714,9 +996,23 @@
             particle.style.top = (100 + Math.random() * 20) + '%';
             particle.style.animationDelay = (Math.random() * 15) + 's';
             particle.style.animationDuration = (10 + Math.random() * 10) + 's';
-            particle.style.width = (2 + Math.random() * 4) + 'px';
+            particle.style.width = (2 + Math.random() * 5) + 'px';
             particle.style.height = particle.style.width;
             particlesContainer.appendChild(particle);
+          }
+        }
+
+        function createLightStreaks() {
+          const container = document.getElementById('light-streaks');
+          for (let i = 0; i < 6; i++) {
+            const streak = document.createElement('div');
+            streak.className = 'light-streak';
+            streak.style.left = (10 + Math.random() * 80) + '%';
+            streak.style.height = (60 + Math.random() * 80) + 'px';
+            streak.style.animationDelay = (Math.random() * 12) + 's';
+            streak.style.animationDuration = (6 + Math.random() * 6) + 's';
+            streak.style.transform = 'rotate(' + (-10 + Math.random() * 20) + 'deg)';
+            container.appendChild(streak);
           }
         }
 
@@ -781,7 +1077,7 @@
           } catch (error) {
             console.error('Weather error:', error);
             weatherTemp.textContent = '--°';
-            weatherDesc.textContent = 'Indisponible';
+            weatherDesc.textContent = t('weatherUnavailable');
           }
         }
 
@@ -879,7 +1175,7 @@
         // ==================== PORTAIL ÖFFNEN ====================
         async function openPortail(event) {
           if (!navigator.onLine) {
-            showStatus('Pas de connexion internet', 'error');
+            showStatus(t('noInternet'), 'error');
             return;
           }
 
@@ -904,7 +1200,7 @@
             trigger.classList.remove('opening');
             trigger.classList.add('success');
 
-            showStatus('Le portail s\'ouvre !', 'success');
+            showStatus(t('success'), 'success');
             createConfetti();
 
             if (navigator.vibrate) {
@@ -916,7 +1212,7 @@
           } catch (error) {
             console.error('Erreur:', error);
             trigger.classList.remove('opening');
-            showStatus('Erreur de connexion. Réessayez.', 'error');
+            showStatus(t('error'), 'error');
 
             if (navigator.vibrate) {
               navigator.vibrate(300);
@@ -930,8 +1226,12 @@
 
         // ==================== INIT ====================
         function init() {
-          // Particles erstellen
+          // Sprache initialisieren
+          initLanguage();
+
+          // Particles und Lichtstreifen erstellen
           createParticles();
+          createLightStreaks();
 
           // Theme initialisieren
           initTheme();
@@ -973,3 +1273,4 @@
     </script>
   </body>
 </html>
+
