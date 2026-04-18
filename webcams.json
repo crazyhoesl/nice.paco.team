@@ -1,52 +1,58 @@
 [
-  {
-    "name": "webcam1-promenade-des-anglais",
-    "url": "https://pv.viewsurf.com/2274/Nice-promenade-des-anglais?i=Nzk5Mjo",
-    "rotation": true
-  },
-  {
-    "name": "webcam2-promenade-du-paillon",
-    "url": "https://pv.viewsurf.com/598/Nice-promenade-du-paillon?i=MzYwMDo",
-    "rotation": true
-  },
-  {
-    "name": "webcam3-port-de-nice",
-    "url": "https://pv.viewsurf.com/2044/Nice-l-aeroport?i=NzQ3MDp1bmRlZmluZWQ",
-    "rotation": true
-  },
-  {
-    "name": "webcam4-nice-aeroport",
-    "url": "https://pv.viewsurf.com/2044/Nice-l-aeroport?i=NzQ3MDp1bmRlZmluZWQ",
-    "rotation": true
-  },
-  {
-    "name": "webcam5-vieux-nice",
-    "url": "https://pv.viewsurf.com/2042/Nice-vieux-Nice?i=NzQ2ODp1bmRlZmluZWQ",
-    "rotation": true
-  },
-  {
-    "name": "webcam6-port-villefranche",
-    "url": "https://www.youtube.com/watch?v=sxTE5DhQ-6Q",
-    "rotation": false
-  },
-  {
-    "name": "webcam7-antibes-port",
-    "url": "https://pv.viewsurf.com/1774/x",
-    "rotation": false
-  },
-  {
-    "name": "webcam8-cannes-quai-Laubeuf",
-    "url": "https://pv.viewsurf.com/1722/x",
-    "rotation": false
-  },
-  {
-    "name": "webcam9-cannes-palm-beach",
-    "url": "https://pv.viewsurf.com/1188/x",
-    "rotation": true
-  },
-  {
-    "name": "webcam10-nice-plages",
-    "url": "https://pv.viewsurf.com/2040/Nice-plages-de-nice?i=NzQ2Njp1bmRlZmluZWQ",
-    "rotation": true
-  }
+    {
+        "name": "webcam1-promenade-des-anglais",
+        "url": "https://pv.viewsurf.com/2274/Nice-promenade-des-anglais?i=Nzk5Mjo",
+        "rotation": true
+    },
+    {
+        "name": "webcam2-promenade-du-paillon",
+        "url": "https://pv.viewsurf.com/598/Nice-promenade-du-paillon?i=MzYwMDo",
+        "rotation": true
+    },
+    {
+        "name": "webcam3-port-de-nice",
+        "url": "https://pv.viewsurf.com/2044/Nice-l-aeroport?i=NzQ3MDp1bmRlZmluZWQ",
+        "rotation": true
+    },
+    {
+        "name": "webcam4-nice-aeroport",
+        "url": "https://pv.viewsurf.com/2044/Nice-l-aeroport?i=NzQ3MDp1bmRlZmluZWQ",
+        "rotation": true
+    },
+    {
+        "name": "webcam5-vieux-nice",
+        "url": "https://pv.viewsurf.com/2042/Nice-vieux-Nice?i=NzQ2ODp1bmRlZmluZWQ",
+        "rotation": true
+    },
+    {
+        "name": "webcam6-port-villefranche",
+        "url": "https://www.youtube.com/watch?v=sxTE5DhQ-6Q",
+        "rotation": false
+    },
+    {
+        "name": "webcam7-antibes-port",
+        "url": "https://pv.viewsurf.com/1774/x",
+        "rotation": false
+    },
+    {
+        "name": "webcam8-cannes-quai-Laubeuf",
+        "url": "https://pv.viewsurf.com/1722/x",
+        "rotation": false
+    },
+    {
+        "name": "webcam9-cannes-palm-beach",
+        "url": "https://pv.viewsurf.com/1188/x",
+        "rotation": true
+    },
+    {
+        "name": "webcam10-nice-plages",
+        "url": "https://pv.viewsurf.com/2040/Nice-plages-de-nice?i=NzQ2Njp1bmRlZmluZWQ",
+        "rotation": true
+    },
+    {
+        "name": "widget-ppdf",
+        "url": "https://crazyhoesl.github.io/PPDF/",
+        "rotation": true,
+        "duration": 30000
+    }
 ]

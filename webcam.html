@@ -26,7 +26,7 @@
   <iframe id="webcamFrame" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
   <script>
     const WORKER_URL = "webcams.json";
-    const ROTATION_INTERVAL = 95000;
+    const DEFAULT_DURATION = 95000; // fallback when an item has no `duration`
 
     function toEmbedUrl(url) {
       const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
@@ -51,9 +51,9 @@
         const res = await fetch(WORKER_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const all = await res.json();
-        const webcams = all.filter((c) => c.rotation);
+        const items = all.filter((c) => c.rotation);
 
-        if (!webcams.length) {
+        if (!items.length) {
           document.getElementById("status").textContent = "Keine Webcams aktiv.";
           return;
         }
@@ -62,20 +62,22 @@
         const frame = document.getElementById("webcamFrame");
         frame.style.display = "block";
 
-        let shuffled = shuffle(webcams);
+        let shuffled = shuffle(items);
         let index = 0;
 
         function next() {
-          frame.src = toEmbedUrl(shuffled[index].url);
+          const current = shuffled[index];
+          frame.src = toEmbedUrl(current.url);
+          const duration = Number(current.duration) > 0 ? Number(current.duration) : DEFAULT_DURATION;
           index++;
           if (index >= shuffled.length) {
             index = 0;
-            shuffled = shuffle(webcams);
+            shuffled = shuffle(items);
           }
+          setTimeout(next, duration);
         }
 
         next();
-        setInterval(next, ROTATION_INTERVAL);
       } catch (err) {
         const el = document.getElementById("status");
         el.className = "status error";
