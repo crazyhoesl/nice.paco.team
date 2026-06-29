@@ -63,15 +63,19 @@
             cacheId:      'helios-hero-demo',
         });
 
-        // Keep only the home (house icon). The chips, leaders, sun→home ray and the
-        // sunrise/sunset time labels are rendered inside the card's (open) shadow root,
-        // so page CSS can't reach them — inject a stylesheet into the shadow root once
-        // the card has mounted. adoptedStyleSheets survives the card's re-renders.
+        // Strip the card down to the 3D scene: keep the home marker (house icon),
+        // the sun arc and the sunrise/sunset times. Hide every data chip, their
+        // leaders, the sun→home ray, the bottom timeline + period bar, and the
+        // left/right control rails (icons + their functionality). These live inside
+        // the card's (open) shadow root, so page CSS can't reach them — inject a
+        // stylesheet via adoptedStyleSheets (survives the card's re-renders).
         const HIDE_CSS = `
             .pv-pct-label, .battery-pct-label, .grid-label, .custom-label,
             .solar-pct-label, .cloud-chip, .cloud-chip-leader,
             .pv-home-leader-svg, .grid-leader-svg, .battery-leader-svg,
-            .custom-leader-svg, .solar-ray-svg, .sun-cross-marker {
+            .custom-leader-svg, .solar-ray-svg,
+            .time-bar, .tb-band,
+            .overlay-top-left, .overlay-top-right {
                 display: none !important;
             }
             .home-pill .home-pill-usage { display: none !important; }
