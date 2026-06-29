@@ -215,9 +215,11 @@
         async function horizonAlongBearing(bearingDeg) {
             const b = bearingDeg * rad, cosB = Math.cos(b), sinB = Math.sin(b);
             const dLat = 1 / 111320, dLon = 1 / (111320 * Math.cos(HOME.lat * rad));
+            // Start at 300 m: the coarse (~90 m) DEM and the home's own slope make the
+            // first 100–200 m unreliable; "behind the hills" means the ridges beyond.
             const dists = [];
-            for (let d = 100;  d <= 1000;  d += 100)  dists.push(d);
-            for (let d = 1250; d <= 5000;  d += 250)  dists.push(d);
+            for (let d = 300;  d <= 1500;  d += 150)  dists.push(d);
+            for (let d = 1750; d <= 5000;  d += 250)  dists.push(d);
             for (let d = 5500; d <= 15000; d += 500)  dists.push(d);
             for (let d = 16000; d <= 25000; d += 1000) dists.push(d);
             const lats = dists.map(d => (HOME.lat + d * cosB * dLat).toFixed(5));
@@ -312,10 +314,14 @@
                 const r0 = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${HOME.lat}&longitude=${HOME.lon}`);
                 if (r0.ok) { const e0 = (await r0.json()).elevation; if (Array.isArray(e0) && typeof e0[0] === 'number') homeElev = e0[0]; }
                 const today = new Date();
-                const sr = await terrainEvent(today, false);
-                const ss = await terrainEvent(today, true);
-                terr.key = key; terr.sunrise = sr; terr.sunset = ss;
-                if (window.__sky) window.__sky.terrain = { homeElev, sunrise: sr, sunset: ss };
+                const g = getTimes(today, HOME.lat, HOME.lon);
+                // Terrain correction for SUNSET only — that's the "sun behind the western
+                // hills" case. Sunrise stays astronomical (the eastern slope the house sits
+                // on makes a near-field terrain sunrise unreliable).
+                let ss = await terrainEvent(today, true);
+                if (Math.abs(ss - g.sunset) > 90 * 60000) ss = g.sunset;   // guard against artefacts
+                terr.key = key; terr.sunrise = null; terr.sunset = ss;
+                if (window.__sky) window.__sky.terrain = { homeElev, sunset: ss, geomSunset: g.sunset };
                 render();
             } catch (err) {
                 terrCooldown = Date.now() + 60000;           // back off a minute; geometric times shown meanwhile
