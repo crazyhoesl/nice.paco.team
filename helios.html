@@ -75,6 +75,7 @@
             .custom-leader-svg, .solar-ray-svg,
             .time-bar, .tb-band,
             .home-pill, .sun-cross-marker,
+            .solar-svg:not(.solar-svg-sun),
             .overlay-top-left, .overlay-top-right {
                 display: none !important;
             }
@@ -292,7 +293,7 @@
             const card = document.getElementById('helios-demo-host').querySelector('helios-card');
             return card && card.shadowRoot && card.shadowRoot.querySelector('ha-card');
         };
-        let layer, orbitAbove, orbitBelow, moonGlow, moonDisc, riseMark, setMark, built = false;
+        let layer, orbitDeep, orbitAbove, orbitBelow, sunGlow, sunDotted, sunSolid, moonGlow, moonDisc, riseMark, setMark, built = false;
         function mkMarker(icon) {
             const d = document.createElement('div');
             d.style.cssText = 'position:fixed;transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:3px;color:#ffc107;pointer-events:none;font:600 12px/1 Inter,Roboto,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.85);z-index:9;';
@@ -304,17 +305,25 @@
             if (built) return;
             layer = document.createElementNS(SVGNS, 'svg');
             layer.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow:visible;pointer-events:none;z-index:8;';
-            // Fine round dots (dasharray "0 N" + round caps = true circles), like the card's
-            // own below-horizon sun path. Fainter below the horizon than above.
-            orbitBelow = document.createElementNS(SVGNS, 'path');
-            orbitBelow.setAttribute('fill', 'none'); orbitBelow.setAttribute('stroke', 'rgba(178,205,245,0.28)');
-            orbitBelow.setAttribute('stroke-width', '2.1'); orbitBelow.setAttribute('stroke-dasharray', '0 10'); orbitBelow.setAttribute('stroke-linecap', 'round');
-            orbitAbove = document.createElementNS(SVGNS, 'path');
-            orbitAbove.setAttribute('fill', 'none'); orbitAbove.setAttribute('stroke', 'rgba(184,210,247,0.55)');
-            orbitAbove.setAttribute('stroke-width', '2.3'); orbitAbove.setAttribute('stroke-dasharray', '0 9'); orbitAbove.setAttribute('stroke-linecap', 'round');
+            const mk = (stroke, w, dash) => {
+                const p = document.createElementNS(SVGNS, 'path');
+                p.setAttribute('fill', 'none'); p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', w);
+                if (dash) p.setAttribute('stroke-dasharray', dash);
+                p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+                return p;
+            };
+            // Moon orbit (fine round dots): complete ellipse, fading with depth.
+            orbitDeep  = mk('rgba(178,205,245,0.12)', '2',   '0 11');
+            orbitBelow = mk('rgba(178,205,245,0.28)', '2.1', '0 10');
+            orbitAbove = mk('rgba(186,212,248,0.55)', '2.3', '0 9');
+            // Own sun arc (card's arc hidden): glow + solid where the sun is visible above the
+            // terrain (terrain sunrise→sunset), dim gold dots where behind the hill / below horizon.
+            sunGlow   = mk('rgba(255,196,60,0.14)', '9',   null);
+            sunDotted = mk('rgba(255,205,90,0.32)', '2',   '0 9');
+            sunSolid  = mk('rgba(255,202,58,0.96)', '2.3', null);
             moonGlow = document.createElementNS(SVGNS, 'circle'); moonGlow.setAttribute('r', '16'); moonGlow.setAttribute('fill', 'rgba(176,202,244,0.20)');
             moonDisc = document.createElementNS(SVGNS, 'circle'); moonDisc.setAttribute('r', '9'); moonDisc.setAttribute('fill', '#dfe7f5');
-            layer.append(orbitBelow, orbitAbove, moonGlow, moonDisc);
+            layer.append(orbitDeep, orbitBelow, orbitAbove, moonGlow, moonDisc, sunGlow, sunDotted, sunSolid);
             document.body.appendChild(layer);
             riseMark = mkMarker('mdi:weather-sunset-up'); setMark = mkMarker('mdi:weather-sunset-down');
             built = true;
@@ -333,16 +342,45 @@
         const ok = v => v && isFinite(v.x) && isFinite(v.y) && Math.abs(v.x) < 20000 && Math.abs(v.y) < 20000;
         function drawOrbit(E, ox, oy) {
             ensureOrbitCache(E);
-            let dA = '', dB = '', penA = false, penB = false;
+            let dA = '', dB = '', dD = '', pA = false, pB = false, pD = false;
             for (const q of orbitCache.pts) {
-                if (q.alt < -0.21) { penA = penB = false; continue; }   // skip deep-below (~-12°): keep it sky-bound
                 const p = project(E, q.azN, q.alt);
-                if (!ok(p)) { penA = penB = false; continue; }
+                if (!ok(p)) { pA = pB = pD = false; continue; }
                 const xy = (ox + p.x).toFixed(1) + ' ' + (oy + p.y).toFixed(1);
-                if (q.alt > 0) { dA += (penA ? 'L' : 'M') + xy + ' '; penA = true; penB = false; }
-                else           { dB += (penB ? 'L' : 'M') + xy + ' '; penB = true; penA = false; }
+                if (q.alt > 0)          { dA += (pA ? 'L' : 'M') + xy + ' '; pA = true; pB = pD = false; }
+                else if (q.alt > -0.21) { dB += (pB ? 'L' : 'M') + xy + ' '; pB = true; pA = pD = false; }
+                else                    { dD += (pD ? 'L' : 'M') + xy + ' '; pD = true; pA = pB = false; }
             }
-            orbitAbove.setAttribute('d', dA); orbitBelow.setAttribute('d', dB);
+            orbitAbove.setAttribute('d', dA); orbitBelow.setAttribute('d', dB); orbitDeep.setAttribute('d', dD);
+        }
+
+        // Own sun arc points (camera-independent dome points + a per-time "visible above terrain" flag).
+        let sunCache = { key: '', pts: [] };
+        function ensureSunCache(E) {
+            const start = new Date(); start.setHours(0, 0, 0, 0);
+            const g = getTimes(start, HOME.lat, HOME.lon);
+            const vr = (terr.sunrise || g.sunrise).getTime(), vs = (terr.sunset || g.sunset).getTime();
+            const key = start.toDateString() + '|' + Math.round(E._sunArcScale() * 100) + '|' + vr + '|' + vs;
+            if (sunCache.key === key) return;
+            const N = 96, step = dayMs / N, pts = [];
+            for (let i = 0; i <= N; i++) {
+                const t = new Date(start.getTime() + i * step), sp = E._sunSpherePoint(t);
+                pts.push(sp ? { lon: sp.lon, lat: sp.lat, altM: sp.altitudeM, vis: (t.getTime() >= vr && t.getTime() <= vs) } : null);
+            }
+            sunCache = { key, pts };
+        }
+        function drawSunArc(E, ox, oy) {
+            ensureSunCache(E);
+            let dV = '', dH = '', pV = false, pH = false;
+            for (const q of sunCache.pts) {
+                if (!q) { pV = pH = false; continue; }
+                const p = E._projectScenePoint(q.lon, q.lat, q.altM);
+                if (!p || !isFinite(p.x) || Math.abs(p.x) > 20000 || Math.abs(p.y) > 20000) { pV = pH = false; continue; }
+                const xy = (ox + p.x).toFixed(1) + ' ' + (oy + p.y).toFixed(1);
+                if (q.vis) { dV += (pV ? 'L' : 'M') + xy + ' '; pV = true; pH = false; }
+                else       { dH += (pH ? 'L' : 'M') + xy + ' '; pH = true; pV = false; }
+            }
+            sunSolid.setAttribute('d', dV); sunGlow.setAttribute('d', dV); sunDotted.setAttribute('d', dH);
         }
         function drawDisc(E, ox, oy) {
             const p = projMoonAt(E, new Date());
@@ -371,7 +409,7 @@
             const min = Math.floor(Date.now() / 60000);
             const rk = Math.round(ox) + 'x' + Math.round(oy) + 'x' + Math.round(r.width);
             if (b !== lastB || min !== lastMin || rk !== lastRect) {
-                drawOrbit(E, ox, oy); drawDisc(E, ox, oy); drawMarkers(E, ox, oy);
+                drawSunArc(E, ox, oy); drawOrbit(E, ox, oy); drawDisc(E, ox, oy); drawMarkers(E, ox, oy);
                 lastB = b; lastMin = min; lastRect = rk;
             }
         }
