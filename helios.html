@@ -175,7 +175,8 @@
         function getTimes(date, lat, lng) {
             const lw = rad * -lng, phi = rad * lat, d = toDays(date), n = julianCycle(d, lw), ds = approxTransit(0, lw, n),
                   M = solarMeanAnomaly(ds), L = eclipticLongitude(M), dec = declination(L, 0), Jnoon = solarTransitJ(ds, M, L);
-            const Jset = getSetJ(-0.833 * rad, lw, phi, dec, n, M, L), Jrise = Jnoon - (Jset - Jnoon);
+            // Geometric horizon (0°) to match the card's sun-arc crossing times.
+            const Jset = getSetJ(0, lw, phi, dec, n, M, L), Jrise = Jnoon - (Jset - Jnoon);
             const Jgold = getSetJ(6 * rad, lw, phi, dec, n, M, L);
             return { solarNoon: fromJulian(Jnoon), sunrise: fromJulian(Jrise), sunset: fromJulian(Jset), goldenHour: fromJulian(Jgold) };
         }
@@ -220,7 +221,7 @@
             elDate.textContent = fmtDate(now);
 
             const t = getTimes(now, HOME.lat, HOME.lon);
-            const isDay = getPosition(now, HOME.lat, HOME.lon).altitude > -0.833 * rad;
+            const isDay = getPosition(now, HOME.lat, HOME.lon).altitude > 0;
 
             const rows = [row('⏱️', 'Taglänge ' + dur(t.sunset - t.sunrise))];
             if (isDay) {
