@@ -285,22 +285,25 @@
             return pr ? { x: pr.x, y: pr.y } : null;
         }
 
-        let layer, orbitAbove, orbitBelow, moonGlow, moonDisc, riseMark, setMark, attached = false;
+        // The overlay lives at PAGE level (not inside the card) so the card's Lit
+        // re-renders can't wipe it. The card's projection returns pixels relative to
+        // the ha-card box; we add ha-card's page offset each frame to map into page px.
+        const haCardEl = () => {
+            const card = document.getElementById('helios-demo-host').querySelector('helios-card');
+            return card && card.shadowRoot && card.shadowRoot.querySelector('ha-card');
+        };
+        let layer, orbitAbove, orbitBelow, moonGlow, moonDisc, riseMark, setMark, built = false;
         function mkMarker(icon) {
             const d = document.createElement('div');
-            d.className = 'helios-terr-marker';
-            d.style.cssText = 'position:absolute;transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:3px;color:#ffc107;pointer-events:none;font:600 12px/1 Inter,Roboto,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.75);';
+            d.style.cssText = 'position:fixed;transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:3px;color:#ffc107;pointer-events:none;font:600 12px/1 Inter,Roboto,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.85);z-index:9;';
             d.innerHTML = `<iconify-icon icon="${icon}" style="font-size:16px"></iconify-icon><span class="t"></span>`;
+            document.body.appendChild(d);
             return d;
         }
-        function ensureOverlay() {
-            if (attached && layer && layer.isConnected) return true;
-            const card = document.getElementById('helios-demo-host').querySelector('helios-card');
-            const haCard = card && card.shadowRoot && card.shadowRoot.querySelector('ha-card');
-            if (!haCard) return false;
+        function buildOverlay() {
+            if (built) return;
             layer = document.createElementNS(SVGNS, 'svg');
-            layer.setAttribute('class', 'helios-moon-layer');
-            layer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
+            layer.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow:visible;pointer-events:none;z-index:8;';
             orbitBelow = document.createElementNS(SVGNS, 'path');
             orbitBelow.setAttribute('fill', 'none'); orbitBelow.setAttribute('stroke', 'rgba(150,184,238,0.45)');
             orbitBelow.setAttribute('stroke-width', '1.2'); orbitBelow.setAttribute('stroke-dasharray', '0.6 5.5'); orbitBelow.setAttribute('stroke-linecap', 'round');
@@ -310,11 +313,9 @@
             moonGlow = document.createElementNS(SVGNS, 'circle'); moonGlow.setAttribute('r', '16'); moonGlow.setAttribute('fill', 'rgba(176,202,244,0.20)');
             moonDisc = document.createElementNS(SVGNS, 'circle'); moonDisc.setAttribute('r', '9'); moonDisc.setAttribute('fill', '#dfe7f5');
             layer.append(orbitBelow, orbitAbove, moonGlow, moonDisc);
-            haCard.appendChild(layer);
+            document.body.appendChild(layer);
             riseMark = mkMarker('mdi:weather-sunset-up'); setMark = mkMarker('mdi:weather-sunset-down');
-            haCard.append(riseMark, setMark);
-            attached = true;
-            return true;
+            built = true;
         }
 
         // The moon's daily orbit is camera-independent; cache its dome points, re-project per frame.
@@ -327,45 +328,48 @@
             for (let i = 0; i <= N; i++) { const m = moonPosition(new Date(start.getTime() + i * step)); pts.push({ azN: m.azN, alt: m.alt }); }
             orbitCache = { key, pts };
         }
-        const ok = v => v && isFinite(v.x) && isFinite(v.y) && Math.abs(v.x) < 9000 && Math.abs(v.y) < 9000;
-        function drawOrbit(E) {
+        const ok = v => v && isFinite(v.x) && isFinite(v.y) && Math.abs(v.x) < 20000 && Math.abs(v.y) < 20000;
+        function drawOrbit(E, ox, oy) {
             ensureOrbitCache(E);
             let dA = '', dB = '', penA = false, penB = false;
             for (const q of orbitCache.pts) {
                 const p = project(E, q.azN, q.alt);
                 if (!ok(p)) { penA = penB = false; continue; }
-                const xy = p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+                const xy = (ox + p.x).toFixed(1) + ' ' + (oy + p.y).toFixed(1);
                 if (q.alt > 0) { dA += (penA ? 'L' : 'M') + xy + ' '; penA = true; penB = false; }
                 else           { dB += (penB ? 'L' : 'M') + xy + ' '; penB = true; penA = false; }
             }
             orbitAbove.setAttribute('d', dA); orbitBelow.setAttribute('d', dB);
         }
-        function drawDisc(E) {
+        function drawDisc(E, ox, oy) {
             const p = projMoonAt(E, new Date());
             const show = ok(p) && p.alt > 0;
             for (const el of [moonDisc, moonGlow]) el.style.display = show ? '' : 'none';
-            if (show) { for (const el of [moonDisc, moonGlow]) { el.setAttribute('cx', p.x.toFixed(1)); el.setAttribute('cy', p.y.toFixed(1)); } }
+            if (show) for (const el of [moonDisc, moonGlow]) { el.setAttribute('cx', (ox + p.x).toFixed(1)); el.setAttribute('cy', (oy + p.y).toFixed(1)); }
         }
-        function placeMarker(mark, pt, txt) {
-            if (ok(pt)) { mark.style.left = pt.x.toFixed(1) + 'px'; mark.style.top = pt.y.toFixed(1) + 'px'; mark.style.display = 'flex'; mark.querySelector('.t').textContent = txt; }
+        function placeMarker(mark, pt, txt, ox, oy) {
+            if (ok(pt)) { mark.style.left = (ox + pt.x).toFixed(1) + 'px'; mark.style.top = (oy + pt.y).toFixed(1) + 'px'; mark.style.display = 'flex'; mark.querySelector('.t').textContent = txt; }
             else mark.style.display = 'none';
         }
-        function drawMarkers(E) {
+        function drawMarkers(E, ox, oy) {
             const g = getTimes(new Date(), HOME.lat, HOME.lon);
             const sr = terr.sunrise || g.sunrise, ss = terr.sunset || g.sunset;
-            placeMarker(riseMark, projSunAt(E, sr), hmCard(sr));
-            placeMarker(setMark,  projSunAt(E, ss), hmCard(ss));
+            placeMarker(riseMark, projSunAt(E, sr), hmCard(sr), ox, oy);
+            placeMarker(setMark,  projSunAt(E, ss), hmCard(ss), ox, oy);
         }
 
-        let lastB = null, lastMin = -1;
+        let lastB = null, lastMin = -1, lastRect = '';
         function frame() {
-            const E = eng();
-            if (E && E._renderer && ensureOverlay()) {
+            const E = eng(), hc = haCardEl();
+            if (E && E._renderer && hc) {
+                buildOverlay();
+                const r = hc.getBoundingClientRect(), ox = r.left, oy = r.top;
                 const b = safe(() => E.getCameraBearing());
                 const min = Math.floor(Date.now() / 60000);
-                if (b !== lastB || min !== lastMin) {
-                    drawOrbit(E); drawDisc(E); drawMarkers(E);
-                    lastB = b; lastMin = min;
+                const rk = Math.round(ox) + 'x' + Math.round(oy) + 'x' + Math.round(r.width);
+                if (b !== lastB || min !== lastMin || rk !== lastRect) {
+                    drawOrbit(E, ox, oy); drawDisc(E, ox, oy); drawMarkers(E, ox, oy);
+                    lastB = b; lastMin = min; lastRect = rk;
                 }
             }
             requestAnimationFrame(frame);
