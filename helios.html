@@ -148,10 +148,10 @@
             hostEl:       host,
             initialLang:  'de',
             initialTheme: 'dark',
-            // Helios card, version-pinned, served from jsDelivr (CORS-enabled ES module).
-            // To self-host instead, drop helios-card-bundle.js next to this file and use:
-            //   bundleUrl: new URL('./helios-card-bundle.js', import.meta.url).href,
-            bundleUrl:    'https://cdn.jsdelivr.net/gh/ReikanYsora/Helios@2026.7.1/dist/helios.js',
+            // Fixed home location (Nice) so the scene boots there — no geolocation needed.
+            initialHome:  { lat: 43.70169894795422, lon: 7.296547293663026 },
+            // Self-hosted Helios card (v2026.7.1), committed next to this file.
+            bundleUrl:    new URL('./helios.js', import.meta.url).href,
             cacheId:      'helios-hero-demo',
         });
 
