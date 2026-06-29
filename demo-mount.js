@@ -560,7 +560,7 @@ export function mountHeliosDemo({ hostEl, initialLang, initialTheme, initialHome
         //camera, selected metric) in localStorage. Without it, two cards on the
         //same demo home share one slot and inherit each other's view mode.
         ...(cacheId ? { 'cache-id': cacheId } : {}),
-        'auto-rotate-enabled':     false,
+        'auto-rotate-enabled':     true,
         'display-radius':          500,
         'building-count':          100,
         'building-opacity':        0.25,
