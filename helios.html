@@ -26,7 +26,6 @@
             width: 100vw;
             height: 100vh;
         }
-        /* demo-mount adds .demo-error to the host when the bundle can't be loaded. */
         #helios-demo-host.demo-error {
             display: flex;
             align-items: center;
@@ -38,17 +37,58 @@
             line-height: 1.5;
             background: #160d0d;
         }
+
+        /* Ambient sky panel (top-left): clock, date, sun/moon facts. */
+        #sky-info {
+            position: fixed;
+            top: 24px;
+            left: 28px;
+            z-index: 10;
+            pointer-events: none;
+            user-select: none;
+            color: #eef1f6;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+            font-variant-numeric: tabular-nums;
+        }
+        .si-time { font-size: clamp(34px, 4.2vw, 46px); font-weight: 300; line-height: 1; letter-spacing: 1px; }
+        .si-date { margin-top: 5px; font-size: 14px; color: #aeb6c4; }
+        .si-rows { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; }
+        .si-row { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: #c7cedb; }
+        .si-ic { width: 18px; text-align: center; font-size: 14px; }
+
+        /* Moon glyph shown at night, centred near the top (where the sun sits by day). */
+        #moon-glyph {
+            position: fixed;
+            top: 7%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9;
+            pointer-events: none;
+            user-select: none;
+            font-size: clamp(40px, 6vw, 70px);
+            line-height: 1;
+            filter: drop-shadow(0 0 18px rgba(220, 230, 255, 0.45));
+            display: none;
+        }
     </style>
 </head>
 <body class="theme-dark">
     <div id="helios-demo-host"></div>
+
+    <div id="moon-glyph" aria-hidden="true"></div>
+
+    <div id="sky-info" aria-hidden="true">
+        <div class="si-time" id="si-time">--:--</div>
+        <div class="si-date" id="si-date"></div>
+        <div class="si-rows" id="si-rows"></div>
+    </div>
 
     <!-- 1) HA shims: define <ha-card>/<ha-icon> and inject the HA design tokens. -->
     <script type="module" src="./ha-shims.js"></script>
 
     <!-- 2) Mount the live demo card (fixed home = Nice, self-hosted bundle, auto-rotating). -->
     <script type="module">
-        import { mountHeliosDemo } from './demo-mount.js?v=2';
+        import { mountHeliosDemo } from './demo-mount.js?v=3';
 
         const host = document.getElementById('helios-demo-host');
 
@@ -98,6 +138,110 @@
                 clearInterval(iv);
             }
         }, 100);
+    </script>
+
+    <!-- 3) Ambient sky info: clock + date, day length, golden hour, sunset countdown
+            (by day) and moon phase + glyph (by night). Sun/moon are computed locally
+            with a compact SunCalc-style model (adapted from V. Agafonkin's SunCalc, BSD)
+            — no API calls. -->
+    <script type="module">
+        const HOME = { lat: 43.70169894795422, lon: 7.296547293663026 };
+
+        const PI = Math.PI, rad = PI / 180, dayMs = 86400000, J1970 = 2440588, J2000 = 2451545, e = rad * 23.4397;
+        const toJulian   = d => d.valueOf() / dayMs - 0.5 + J1970;
+        const fromJulian = j => new Date((j + 0.5 - J1970) * dayMs);
+        const toDays     = d => toJulian(d) - J2000;
+        const rightAscension = (l, b) => Math.atan2(Math.sin(l) * Math.cos(e) - Math.tan(b) * Math.sin(e), Math.cos(l));
+        const declination    = (l, b) => Math.asin(Math.sin(b) * Math.cos(e) + Math.cos(b) * Math.sin(e) * Math.sin(l));
+        const azimuth  = (H, phi, dec) => Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
+        const altitude = (H, phi, dec) => Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+        const siderealTime = (d, lw) => rad * (280.16 + 360.9856235 * d) - lw;
+        const solarMeanAnomaly = d => rad * (357.5291 + 0.98560028 * d);
+        const eclipticLongitude = M => {
+            const C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+            return M + C + rad * 102.9372 + PI;
+        };
+        const sunCoords = d => { const M = solarMeanAnomaly(d), L = eclipticLongitude(M); return { dec: declination(L, 0), ra: rightAscension(L, 0) }; };
+        const getPosition = (date, lat, lng) => {
+            const lw = rad * -lng, phi = rad * lat, d = toDays(date), c = sunCoords(d), H = siderealTime(d, lw) - c.ra;
+            return { azimuth: azimuth(H, phi, c.dec), altitude: altitude(H, phi, c.dec) };
+        };
+        const J0 = 0.0009;
+        const approxTransit = (Ht, lw, n) => J0 + (Ht + lw) / (2 * PI) + n;
+        const solarTransitJ = (ds, M, L) => J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+        const hourAngle = (h, phi, d) => Math.acos((Math.sin(h) - Math.sin(phi) * Math.sin(d)) / (Math.cos(phi) * Math.cos(d)));
+        const julianCycle = (d, lw) => Math.round(d - J0 - lw / (2 * PI));
+        const getSetJ = (h, lw, phi, dec, n, M, L) => solarTransitJ(approxTransit(hourAngle(h, phi, dec), lw, n), M, L);
+        function getTimes(date, lat, lng) {
+            const lw = rad * -lng, phi = rad * lat, d = toDays(date), n = julianCycle(d, lw), ds = approxTransit(0, lw, n),
+                  M = solarMeanAnomaly(ds), L = eclipticLongitude(M), dec = declination(L, 0), Jnoon = solarTransitJ(ds, M, L);
+            const Jset = getSetJ(-0.833 * rad, lw, phi, dec, n, M, L), Jrise = Jnoon - (Jset - Jnoon);
+            const Jgold = getSetJ(6 * rad, lw, phi, dec, n, M, L);
+            return { solarNoon: fromJulian(Jnoon), sunrise: fromJulian(Jrise), sunset: fromJulian(Jset), goldenHour: fromJulian(Jgold) };
+        }
+        const moonCoords = d => {
+            const L = rad * (218.316 + 13.176396 * d), M = rad * (134.963 + 13.064993 * d), F = rad * (93.272 + 13.229350 * d),
+                  l = L + rad * 6.289 * Math.sin(M), b = rad * 5.128 * Math.sin(F), dt = 385001 - 20905 * Math.cos(M);
+            return { ra: rightAscension(l, b), dec: declination(l, b), dist: dt };
+        };
+        function getMoonIllumination(date) {
+            const d = toDays(date), s = sunCoords(d), m = moonCoords(d), sdist = 149598000,
+                  phi = Math.acos(Math.sin(s.dec) * Math.sin(m.dec) + Math.cos(s.dec) * Math.cos(m.dec) * Math.cos(s.ra - m.ra)),
+                  inc = Math.atan2(sdist * Math.sin(phi), m.dist - sdist * Math.cos(phi)),
+                  angle = Math.atan2(Math.cos(s.dec) * Math.sin(s.ra - m.ra),
+                                     Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
+            return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + 0.5 * inc * (angle < 0 ? -1 : 1) / PI };
+        }
+        function moonName(p) {
+            if (p < 0.03 || p > 0.97) return ['🌑', 'Neumond'];
+            if (p < 0.22) return ['🌒', 'Zunehmende Sichel'];
+            if (p < 0.28) return ['🌓', 'Erstes Viertel'];
+            if (p < 0.47) return ['🌔', 'Zunehmender Mond'];
+            if (p < 0.53) return ['🌕', 'Vollmond'];
+            if (p < 0.72) return ['🌖', 'Abnehmender Mond'];
+            if (p < 0.78) return ['🌗', 'Letztes Viertel'];
+            return ['🌘', 'Abnehmende Sichel'];
+        }
+
+        const pad = n => String(n).padStart(2, '0');
+        const hm  = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+        const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)); return Math.floor(m / 60) + ' h ' + pad(m % 60) + ' min'; };
+        const fmtDate = d => d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+        const row = (ic, txt) => `<div class="si-row"><span class="si-ic">${ic}</span><span>${txt}</span></div>`;
+
+        const elTime = document.getElementById('si-time');
+        const elDate = document.getElementById('si-date');
+        const elRows = document.getElementById('si-rows');
+        const elMoon = document.getElementById('moon-glyph');
+
+        function render() {
+            const now = new Date();
+            elTime.textContent = hm(now);
+            elDate.textContent = fmtDate(now);
+
+            const t = getTimes(now, HOME.lat, HOME.lon);
+            const isDay = getPosition(now, HOME.lat, HOME.lon).altitude > -0.833 * rad;
+
+            const rows = [row('⏱️', 'Taglänge ' + dur(t.sunset - t.sunrise))];
+            if (isDay) {
+                rows.push(row('🌇', 'Golden Hour ' + hm(t.goldenHour)));
+                rows.push(row('🌆', 'Untergang in ' + dur(t.sunset - now)));
+                elMoon.style.display = 'none';
+            } else {
+                const mi = getMoonIllumination(now), [emo, nm] = moonName(mi.phase);
+                rows.push(row(emo, nm + ' · ' + Math.round(mi.fraction * 100) + ' %'));
+                let nextRise = t.sunrise;
+                if (now > t.sunrise) nextRise = getTimes(new Date(now.getTime() + dayMs), HOME.lat, HOME.lon).sunrise;
+                rows.push(row('🌅', 'Aufgang in ' + dur(nextRise - now)));
+                elMoon.textContent = emo;
+                elMoon.style.display = 'block';
+            }
+            elRows.innerHTML = rows.join('');
+        }
+
+        render();
+        setInterval(render, 1000);
+        window.__sky = { getTimes, getPosition, getMoonIllumination, moonName };
     </script>
 </body>
 </html>
