@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Helios – Live Demo</title>
+
+    <!-- Iconify registers <iconify-icon>; ha-shims' <ha-icon> delegates mdi:* to it.
+         A classic <script> in <head> finishes before the deferred module scripts run. -->
+    <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
+
+    <style>
+        :root { color-scheme: dark; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding: 32px 16px 64px;
+            background: radial-gradient(1200px 800px at 50% -10%, #1b2433 0%, #0d1117 55%, #07090d 100%);
+            color: #e6e9ef;
+            font-family: 'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 560px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-align: center;
+        }
+        h1 .sun { color: #ffc107; }
+
+        p.sub {
+            margin: 0;
+            max-width: 460px;
+            text-align: center;
+            color: #9aa4b2;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        #helios-demo-host {
+            width: min(520px, 100%);
+            height: 600px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+        /* demo-mount adds .demo-error to the host when the bundle can't be loaded. */
+        #helios-demo-host.demo-error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            text-align: center;
+            color: #ffb3b3;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #160d0d;
+            border: 1px solid rgba(255, 80, 80, 0.4);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.06);
+            color: #e6e9ef;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 9px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.05s;
+        }
+        button:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.24); }
+        button:active { transform: translateY(1px); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        button.primary { background: #ffc107; color: #1b1b1b; border-color: #ffc107; }
+        button.primary:hover { background: #ffce3a; border-color: #ffce3a; }
+
+        .seg {
+            display: inline-flex;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .seg button { border: 0; border-radius: 0; background: transparent; padding: 9px 14px; }
+        .seg button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+        .seg button.active { background: #03a9f4; color: #fff; }
+
+        .foot { color: #6b7382; font-size: 12px; text-align: center; line-height: 1.5; }
+        .foot a { color: #9aa4b2; }
+    </style>
+</head>
+<body class="theme-dark">
+    <div class="wrap">
+        <h1><span class="sun">☀</span> Helios – Live Demo</h1>
+        <p class="sub">Eine Echtzeit-3D-Ansicht eines Hauses mit Sonne, Wetter, PV, Batterie und Netz – mit synthetischen Werten, komplett im Browser, ganz ohne Home Assistant.</p>
+
+        <div id="helios-demo-host"></div>
+
+        <div class="controls">
+            <button id="demo-loc-btn" class="primary" type="button">📍 Mit meinem Standort testen</button>
+            <button id="theme-btn" type="button">🌗 Theme</button>
+            <div class="seg" id="lang-seg" role="group" aria-label="Sprache">
+                <button data-lang="de" class="active" type="button">DE</button>
+                <button data-lang="en" type="button">EN</button>
+                <button data-lang="fr" type="button">FR</button>
+            </div>
+        </div>
+
+        <div class="foot">
+            Lädt die Helios-Karte (v2026.7.1), gepinnt von jsDelivr.
+            Quelle: <a href="https://github.com/ReikanYsora/Helios" target="_blank" rel="noopener">github.com/ReikanYsora/Helios</a>
+        </div>
+    </div>
+
+    <!-- 1) HA shims: define <ha-card>/<ha-icon> and inject the HA design tokens. -->
+    <script type="module" src="./ha-shims.js"></script>
+
+    <!-- 2) Mount the live demo card and wire the controls. -->
+    <script type="module">
+        import { mountHeliosDemo } from './demo-mount.js';
+
+        const host = document.getElementById('helios-demo-host');
+
+        const demo = mountHeliosDemo({
+            hostEl:       host,
+            initialLang:  'de',
+            initialTheme: 'dark',
+            // Helios card, version-pinned, served from jsDelivr (CORS-enabled ES module).
+            // To self-host instead, drop helios-card-bundle.js next to this file and use:
+            //   bundleUrl: new URL('./helios-card-bundle.js', import.meta.url).href,
+            bundleUrl:    'https://cdn.jsdelivr.net/gh/ReikanYsora/Helios@2026.7.1/dist/helios.js',
+            cacheId:      'helios-hero-demo',
+        });
+
+        // --- Location button: ask the browser for coordinates, drop the card there.
+        const locBtn = document.getElementById('demo-loc-btn');
+        const locDefault = locBtn.textContent;
+        locBtn.addEventListener('click', () => {
+            if (!('geolocation' in navigator)) {
+                locBtn.textContent = 'Standort nicht verfügbar';
+                return;
+            }
+            locBtn.disabled = true;
+            locBtn.textContent = 'Suche Standort …';
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    demo.setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+                    locBtn.disabled = false;
+                    locBtn.textContent = '📍 Standort übernommen ✓';
+                    setTimeout(() => { locBtn.textContent = locDefault; }, 4000);
+                },
+                () => {
+                    locBtn.disabled = false;
+                    locBtn.textContent = 'Standort blockiert';
+                    setTimeout(() => { locBtn.textContent = locDefault; }, 4000);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        });
+
+        // --- Theme toggle (demo.setTheme also flips the page's .theme-dark class).
+        let theme = 'dark';
+        document.getElementById('theme-btn').addEventListener('click', () => {
+            theme = theme === 'dark' ? 'light' : 'dark';
+            demo.setTheme(theme);
+        });
+
+        // --- Language switch.
+        const langSeg = document.getElementById('lang-seg');
+        langSeg.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-lang]');
+            if (!btn) return;
+            demo.setLanguage(btn.dataset.lang);
+            langSeg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+        });
+    </script>
+</body>
+</html>
