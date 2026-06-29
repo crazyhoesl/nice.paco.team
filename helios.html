@@ -304,12 +304,12 @@
             if (built) return;
             layer = document.createElementNS(SVGNS, 'svg');
             layer.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;overflow:visible;pointer-events:none;z-index:8;';
-            orbitBelow = document.createElementNS(SVGNS, 'path');
-            orbitBelow.setAttribute('fill', 'none'); orbitBelow.setAttribute('stroke', 'rgba(150,184,238,0.45)');
-            orbitBelow.setAttribute('stroke-width', '1.2'); orbitBelow.setAttribute('stroke-dasharray', '0.6 5.5'); orbitBelow.setAttribute('stroke-linecap', 'round');
+            orbitBelow = document.createElementNS(SVGNS, 'path');   // just-below-horizon: same dash, fainter
+            orbitBelow.setAttribute('fill', 'none'); orbitBelow.setAttribute('stroke', 'rgba(174,202,243,0.28)');
+            orbitBelow.setAttribute('stroke-width', '1.2'); orbitBelow.setAttribute('stroke-dasharray', '4 5'); orbitBelow.setAttribute('stroke-linecap', 'round');
             orbitAbove = document.createElementNS(SVGNS, 'path');
-            orbitAbove.setAttribute('fill', 'none'); orbitAbove.setAttribute('stroke', 'rgba(166,198,244,0.8)');
-            orbitAbove.setAttribute('stroke-width', '1.7'); orbitAbove.setAttribute('stroke-dasharray', '7 5'); orbitAbove.setAttribute('stroke-linecap', 'round');
+            orbitAbove.setAttribute('fill', 'none'); orbitAbove.setAttribute('stroke', 'rgba(174,202,243,0.55)');
+            orbitAbove.setAttribute('stroke-width', '1.4'); orbitAbove.setAttribute('stroke-dasharray', '4 5'); orbitAbove.setAttribute('stroke-linecap', 'round');
             moonGlow = document.createElementNS(SVGNS, 'circle'); moonGlow.setAttribute('r', '16'); moonGlow.setAttribute('fill', 'rgba(176,202,244,0.20)');
             moonDisc = document.createElementNS(SVGNS, 'circle'); moonDisc.setAttribute('r', '9'); moonDisc.setAttribute('fill', '#dfe7f5');
             layer.append(orbitBelow, orbitAbove, moonGlow, moonDisc);
@@ -333,6 +333,7 @@
             ensureOrbitCache(E);
             let dA = '', dB = '', penA = false, penB = false;
             for (const q of orbitCache.pts) {
+                if (q.alt < -0.21) { penA = penB = false; continue; }   // skip deep-below (~-12°): keep it sky-bound
                 const p = project(E, q.azN, q.alt);
                 if (!ok(p)) { penA = penB = false; continue; }
                 const xy = (ox + p.x).toFixed(1) + ' ' + (oy + p.y).toFixed(1);
