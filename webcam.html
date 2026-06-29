@@ -28,6 +28,11 @@
     const WORKER_URL = "webcams.json";
     const DEFAULT_DURATION = 95000; // fallback when an item has no `duration`
 
+    // The Helios scene always opens the rotation. No `duration` → uses DEFAULT_DURATION,
+    // i.e. the same timer as the webcam videos. Defined here (not in webcams.json) so the
+    // index.html grid stays unchanged.
+    const HELIOS = { name: "helios", url: "helios.html" };
+
     function toEmbedUrl(url) {
       const match = url.match(/youtube\.com\/watch\?v=([^&]+)/);
       if (match) return `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1`;
@@ -46,33 +51,43 @@
       return a;
     }
 
+    // The PPDF widget closes each loop.
+    function isPdf(item) {
+      return /ppdf/i.test(item.name || "") || /ppdf/i.test(item.url || "");
+    }
+
     async function startRotation() {
       try {
         const res = await fetch(WORKER_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const all = await res.json();
-        const items = all.filter((c) => c.rotation);
-
-        if (!items.length) {
-          document.getElementById("status").textContent = "Keine Webcams aktiv.";
-          return;
-        }
+        const rotation = all.filter((c) => c.rotation);
+        const pdf = rotation.find(isPdf) || null;
+        const videos = rotation.filter((c) => !isPdf(c));
 
         document.getElementById("status").remove();
         const frame = document.getElementById("webcamFrame");
         frame.style.display = "block";
 
-        let shuffled = shuffle(items);
+        // One loop = Helios → videos (shuffled) → PDF. Rebuilt every loop so Helios always
+        // starts, the videos get re-shuffled, and the PDF always comes last.
+        function buildSequence() {
+          const seq = [HELIOS, ...shuffle(videos)];
+          if (pdf) seq.push(pdf);
+          return seq;
+        }
+
+        let sequence = buildSequence();
         let index = 0;
 
         function next() {
-          const current = shuffled[index];
+          const current = sequence[index];
           frame.src = toEmbedUrl(current.url);
           const duration = Number(current.duration) > 0 ? Number(current.duration) : DEFAULT_DURATION;
           index++;
-          if (index >= shuffled.length) {
+          if (index >= sequence.length) {
             index = 0;
-            shuffled = shuffle(items);
+            sequence = buildSequence();
           }
           setTimeout(next, duration);
         }
