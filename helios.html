@@ -2,61 +2,32 @@
 <html lang="de">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Helios – Live Demo</title>
 
-    <!-- Iconify registers <iconify-icon>; ha-shims' <ha-icon> delegates mdi:* to it.
-         A classic <script> in <head> finishes before the deferred module scripts run. -->
+    <!-- Iconify registers <iconify-icon>; ha-shims' <ha-icon> delegates mdi:* to it. -->
     <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
 
     <style>
         :root { color-scheme: dark; }
-        html, body { margin: 0; padding: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; height: 100%; }
         body {
-            min-height: 100vh;
-            box-sizing: border-box;
-            padding: 32px 16px 64px;
-            background: radial-gradient(1200px 800px at 50% -10%, #1b2433 0%, #0d1117 55%, #07090d 100%);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: #07090d;
             color: #e6e9ef;
             font-family: 'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
 
-        .wrap {
-            width: 100%;
-            max-width: 560px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            text-align: center;
-        }
-        h1 .sun { color: #ffc107; }
-
-        p.sub {
-            margin: 0;
-            max-width: 460px;
-            text-align: center;
-            color: #9aa4b2;
-            font-size: 15px;
-            line-height: 1.5;
-        }
-
+        /* The card fills everything above the thin control bar. */
         #helios-demo-host {
-            width: min(520px, 100%);
-            height: 600px;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
         }
         /* demo-mount adds .demo-error to the host when the bundle can't be loaded. */
         #helios-demo-host.demo-error {
@@ -69,14 +40,18 @@
             font-size: 14px;
             line-height: 1.5;
             background: #160d0d;
-            border: 1px solid rgba(255, 80, 80, 0.4);
         }
 
         .controls {
+            flex: 0 0 auto;
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             justify-content: center;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(7, 9, 13, 0.92);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
         button {
             appearance: none;
@@ -107,31 +82,18 @@
         .seg button { border: 0; border-radius: 0; background: transparent; padding: 9px 14px; }
         .seg button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
         .seg button.active { background: #03a9f4; color: #fff; }
-
-        .foot { color: #6b7382; font-size: 12px; text-align: center; line-height: 1.5; }
-        .foot a { color: #9aa4b2; }
     </style>
 </head>
 <body class="theme-dark">
-    <div class="wrap">
-        <h1><span class="sun">☀</span> Helios – Live Demo</h1>
-        <p class="sub">Eine Echtzeit-3D-Ansicht eines Hauses mit Sonne, Wetter, PV, Batterie und Netz – mit synthetischen Werten, komplett im Browser, ganz ohne Home Assistant.</p>
+    <div id="helios-demo-host"></div>
 
-        <div id="helios-demo-host"></div>
-
-        <div class="controls">
-            <button id="demo-loc-btn" class="primary" type="button">📍 Mit meinem Standort testen</button>
-            <button id="theme-btn" type="button">🌗 Theme</button>
-            <div class="seg" id="lang-seg" role="group" aria-label="Sprache">
-                <button data-lang="de" class="active" type="button">DE</button>
-                <button data-lang="en" type="button">EN</button>
-                <button data-lang="fr" type="button">FR</button>
-            </div>
-        </div>
-
-        <div class="foot">
-            Helios-Karte v2026.7.1, selbst gehostet.
-            Quelle: <a href="https://github.com/ReikanYsora/Helios" target="_blank" rel="noopener">github.com/ReikanYsora/Helios</a>
+    <div class="controls">
+        <button id="demo-loc-btn" class="primary" type="button">📍 Mit meinem Standort testen</button>
+        <button id="theme-btn" type="button">🌗 Theme</button>
+        <div class="seg" id="lang-seg" role="group" aria-label="Sprache">
+            <button data-lang="de" class="active" type="button">DE</button>
+            <button data-lang="en" type="button">EN</button>
+            <button data-lang="fr" type="button">FR</button>
         </div>
     </div>
 
