@@ -50,8 +50,10 @@
     <script type="module">
         import { mountHeliosDemo } from './demo-mount.js?v=2';
 
+        const host = document.getElementById('helios-demo-host');
+
         mountHeliosDemo({
-            hostEl:       document.getElementById('helios-demo-host'),
+            hostEl:       host,
             initialLang:  'de',
             initialTheme: 'dark',
             // Fixed home location (Nice) so the scene boots there — no geolocation needed.
@@ -60,6 +62,38 @@
             bundleUrl:    new URL('./helios.js', import.meta.url).href,
             cacheId:      'helios-hero-demo',
         });
+
+        // Keep only the home (house icon). The chips, leaders, sun→home ray and the
+        // sunrise/sunset time labels are rendered inside the card's (open) shadow root,
+        // so page CSS can't reach them — inject a stylesheet into the shadow root once
+        // the card has mounted. adoptedStyleSheets survives the card's re-renders.
+        const HIDE_CSS = `
+            .pv-pct-label, .battery-pct-label, .grid-label, .custom-label,
+            .solar-pct-label, .cloud-chip, .cloud-chip-leader,
+            .pv-home-leader-svg, .grid-leader-svg, .battery-leader-svg,
+            .custom-leader-svg, .solar-ray-svg, .sun-cross-marker {
+                display: none !important;
+            }
+            .home-pill .home-pill-usage { display: none !important; }
+        `;
+        const started = Date.now();
+        const iv = setInterval(() => {
+            const card = host.querySelector('helios-card');
+            if (card && card.shadowRoot) {
+                try {
+                    const sheet = new CSSStyleSheet();
+                    sheet.replaceSync(HIDE_CSS);
+                    card.shadowRoot.adoptedStyleSheets = [...card.shadowRoot.adoptedStyleSheets, sheet];
+                } catch (e) {
+                    const st = document.createElement('style');
+                    st.textContent = HIDE_CSS;
+                    card.shadowRoot.appendChild(st);
+                }
+                clearInterval(iv);
+            } else if (Date.now() - started > 15000) {
+                clearInterval(iv);
+            }
+        }, 100);
     </script>
 </body>
 </html>
