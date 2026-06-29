@@ -359,27 +359,28 @@
         }
 
         let lastB = null, lastMin = -1, lastRect = '';
-        function frame() {
+        function paint() {
             const E = eng(), hc = haCardEl();
-            if (E && E._renderer && hc) {
-                buildOverlay();
-                const r = hc.getBoundingClientRect(), ox = r.left, oy = r.top;
-                const b = safe(() => E.getCameraBearing());
-                const min = Math.floor(Date.now() / 60000);
-                const rk = Math.round(ox) + 'x' + Math.round(oy) + 'x' + Math.round(r.width);
-                if (b !== lastB || min !== lastMin || rk !== lastRect) {
-                    drawOrbit(E, ox, oy); drawDisc(E, ox, oy); drawMarkers(E, ox, oy);
-                    lastB = b; lastMin = min; lastRect = rk;
-                }
+            if (!(E && E._renderer && hc)) return;
+            buildOverlay();
+            const r = hc.getBoundingClientRect(), ox = r.left, oy = r.top;
+            const b = safe(() => E.getCameraBearing());
+            const min = Math.floor(Date.now() / 60000);
+            const rk = Math.round(ox) + 'x' + Math.round(oy) + 'x' + Math.round(r.width);
+            if (b !== lastB || min !== lastMin || rk !== lastRect) {
+                drawOrbit(E, ox, oy); drawDisc(E, ox, oy); drawMarkers(E, ox, oy);
+                lastB = b; lastMin = min; lastRect = rk;
             }
-            requestAnimationFrame(frame);
         }
+        // rAF paints smoothly while the tab is visible; the interval keeps it alive
+        // (and buildable) even when the tab is backgrounded and rAF is paused.
+        function frame() { paint(); requestAnimationFrame(frame); }
 
         render();
         ensureTerrain();
-        setInterval(() => { render(); ensureTerrain(); }, 1000);
+        setInterval(() => { render(); ensureTerrain(); paint(); }, 1000);
         requestAnimationFrame(frame);
-        window.__sky = { getTimes, getPosition, getMoonIllumination, moonName, moonPosition, terrainEvent, project, projMoonAt };
+        window.__sky = { getTimes, getPosition, getMoonIllumination, moonName, moonPosition, terrainEvent, project, projMoonAt, paint };
     </script>
 </body>
 </html>
