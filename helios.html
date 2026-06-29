@@ -22,57 +22,26 @@
         }
 
         /* The card fills the entire viewport. */
-        #helios-demo-host {
-            width: 100vw;
-            height: 100vh;
-        }
+        #helios-demo-host { width: 100vw; height: 100vh; }
         #helios-demo-host.demo-error {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            text-align: center;
-            color: #ffb3b3;
-            font-size: 14px;
-            line-height: 1.5;
-            background: #160d0d;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; text-align: center; color: #ffb3b3;
+            font-size: 14px; line-height: 1.5; background: #160d0d;
         }
 
         /* Ambient sky panel (top-left): a few quiet sun/moon facts, no clock. */
         #sky-info {
-            position: fixed;
-            top: 24px;
-            left: 28px;
-            z-index: 10;
-            pointer-events: none;
-            user-select: none;
-            color: #eef1f6;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+            position: fixed; top: 24px; left: 28px; z-index: 10;
+            pointer-events: none; user-select: none;
+            color: #eef1f6; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
             font-variant-numeric: tabular-nums;
         }
         .si-rows { display: flex; flex-direction: column; gap: 8px; }
         .si-row { font-size: 13.5px; color: #c7cedb; letter-spacing: 0.2px; }
-
-        /* Moon glyph shown at night, centred near the top (where the sun sits by day). */
-        #moon-glyph {
-            position: fixed;
-            top: 7%;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9;
-            pointer-events: none;
-            user-select: none;
-            font-size: clamp(40px, 6vw, 70px);
-            line-height: 1;
-            filter: drop-shadow(0 0 18px rgba(220, 230, 255, 0.45));
-            display: none;
-        }
     </style>
 </head>
 <body class="theme-dark">
     <div id="helios-demo-host"></div>
-
-    <div id="moon-glyph" aria-hidden="true"></div>
 
     <div id="sky-info" aria-hidden="true">
         <div class="si-rows" id="si-rows"></div>
@@ -91,26 +60,21 @@
             hostEl:       host,
             initialLang:  'de',
             initialTheme: 'dark',
-            // Fixed home location (Nice) so the scene boots there — no geolocation needed.
             initialHome:  { lat: 43.70169894795422, lon: 7.296547293663026 },
-            // Self-hosted Helios card (v2026.7.1), committed next to this file.
             bundleUrl:    new URL('./helios.js', import.meta.url).href,
             cacheId:      'helios-hero-demo',
         });
 
-        // Strip the card down to the 3D scene: keep the sun arc and the sunrise/sunset
-        // times. Hide every data chip, their leaders, the sun→home ray, the bottom
-        // timeline + period bar, the left/right control rails AND the home pill (the
-        // green-tinted house already makes "home" obvious). These live inside the card's
-        // (open) shadow root, so page CSS can't reach them — inject a stylesheet via
-        // adoptedStyleSheets (survives the card's re-renders).
+        // Strip the card to the 3D scene. We also hide the card's own sun-cross markers
+        // (.sun-cross-marker) and draw our own at the TERRAIN sunrise/sunset positions
+        // (see script 3), so the arc labels match the panel.
         const HIDE_CSS = `
             .pv-pct-label, .battery-pct-label, .grid-label, .custom-label,
             .solar-pct-label, .cloud-chip, .cloud-chip-leader,
             .pv-home-leader-svg, .grid-leader-svg, .battery-leader-svg,
             .custom-leader-svg, .solar-ray-svg,
             .time-bar, .tb-band,
-            .home-pill,
+            .home-pill, .sun-cross-marker,
             .overlay-top-left, .overlay-top-right {
                 display: none !important;
             }
@@ -135,15 +99,17 @@
         }, 100);
     </script>
 
-    <!-- 3) Ambient sky info: day length, golden hour, the (terrain-aware) sunset, and the
-            moon phase + glyph at night. Sun/moon positions come from a compact SunCalc-style
-            model (adapted from V. Agafonkin's SunCalc, BSD). The sunrise/sunset are then
-            corrected for the observer's real elevation AND the surrounding hills, using a
-            terrain skyline ray-cast from the Open-Meteo elevation API. -->
+    <!-- 3) Sky model + panel + scene overlay:
+            • day length / golden hour / (terrain) sunset, moon phase at night
+            • terrain-aware sunrise AND sunset (observer at 100 m + the surrounding hills)
+            • the moon's orbit + disc, projected into the scene with the card's own
+              _projectScenePoint (the same projection the sun arc uses), re-projected each frame
+            • our own sunrise/sunset arc markers at the terrain-crossing sun positions -->
     <script type="module">
         const HOME = { lat: 43.70169894795422, lon: 7.296547293663026 };
+        const EYE  = 100;   // observer eye height in metres (top floor — fixed per Patrick)
 
-        /* ---- SunCalc-style sun + moon model (radians throughout) ---- */
+        /* ---------- SunCalc-style sun + moon model (radians) ---------- */
         const PI = Math.PI, rad = PI / 180, dayMs = 86400000, J1970 = 2440588, J2000 = 2451545, e = rad * 23.4397;
         const toJulian   = d => d.valueOf() / dayMs - 0.5 + J1970;
         const fromJulian = j => new Date((j + 0.5 - J1970) * dayMs);
@@ -189,152 +155,227 @@
                                      Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
             return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + 0.5 * inc * (angle < 0 ? -1 : 1) / PI };
         }
-        function moonName(p) {
-            if (p < 0.03 || p > 0.97) return ['🌑', 'New moon'];
-            if (p < 0.22) return ['🌒', 'Waxing crescent'];
-            if (p < 0.28) return ['🌓', 'First quarter'];
-            if (p < 0.47) return ['🌔', 'Waxing gibbous'];
-            if (p < 0.53) return ['🌕', 'Full moon'];
-            if (p < 0.72) return ['🌖', 'Waning gibbous'];
-            if (p < 0.78) return ['🌗', 'Last quarter'];
-            return ['🌘', 'Waning crescent'];
+        const moonName = p =>
+            (p < 0.03 || p > 0.97) ? 'New moon'
+            : p < 0.22 ? 'Waxing crescent' : p < 0.28 ? 'First quarter'
+            : p < 0.47 ? 'Waxing gibbous'  : p < 0.53 ? 'Full moon'
+            : p < 0.72 ? 'Waning gibbous'  : p < 0.78 ? 'Last quarter' : 'Waning crescent';
+        // Moon horizon position: altitude (rad) and azimuth measured from NORTH (rad).
+        function moonPosition(date) {
+            const lw = rad * -HOME.lon, phi = rad * HOME.lat, d = toDays(date), m = moonCoords(d), H = siderealTime(d, lw) - m.ra;
+            return { alt: altitude(H, phi, m.dec), azN: azimuth(H, phi, m.dec) + PI };
         }
 
-        /* ---- Terrain-aware sunrise/sunset (observer height + the hills) ---- */
-        const R_EFF = 6371000 / 0.87;        // Earth radius inflated for atmospheric refraction (k≈0.13)
-        const SUN_RADIUS = 0.2666 * rad;     // angular radius of the solar disc
-        let homeElev = 100;                  // metres; refined from the elevation API on load
-        const refractionRad = hDeg => {      // Bennett's apparent-refraction formula → radians
-            const h = Math.max(hDeg, -1);
-            return (1.02 / Math.tan((h + 10.3 / (h + 5.11)) * rad)) / 60 * rad;
-        };
-        // Sun bearing in degrees from North (SunCalc azimuth is measured from South).
+        /* ---------- Terrain-aware sunrise/sunset (eye height + the hills) ---------- */
+        const R_EFF = 6371000 / 0.87;
+        const SUN_RADIUS = 0.2666 * rad;
+        const refractionRad = hDeg => { const h = Math.max(hDeg, -1); return (1.02 / Math.tan((h + 10.3 / (h + 5.11)) * rad)) / 60 * rad; };
         const sunBearingDeg = date => (getPosition(date, HOME.lat, HOME.lon).azimuth * 180 / PI + 180 + 360) % 360;
 
-        // Max skyline elevation angle (radians) along a compass bearing, from the home.
         async function horizonAlongBearing(bearingDeg) {
             const b = bearingDeg * rad, cosB = Math.cos(b), sinB = Math.sin(b);
             const dLat = 1 / 111320, dLon = 1 / (111320 * Math.cos(HOME.lat * rad));
-            // Start at 300 m: the coarse (~90 m) DEM and the home's own slope make the
-            // first 100–200 m unreliable; "behind the hills" means the ridges beyond.
             const dists = [];
-            for (let d = 300;  d <= 1500;  d += 150)  dists.push(d);
+            for (let d = 300;  d <= 1500;  d += 150)  dists.push(d);   // skip <300 m: coarse DEM + own slope
             for (let d = 1750; d <= 5000;  d += 250)  dists.push(d);
             for (let d = 5500; d <= 15000; d += 500)  dists.push(d);
             for (let d = 16000; d <= 25000; d += 1000) dists.push(d);
             const lats = dists.map(d => (HOME.lat + d * cosB * dLat).toFixed(5));
             const lons = dists.map(d => (HOME.lon + d * sinB * dLon).toFixed(5));
-            const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats.join(',')}&longitude=${lons.join(',')}`;
-            const res = await fetch(url);
+            const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats.join(',')}&longitude=${lons.join(',')}`);
             if (!res.ok) throw new Error('elevation http ' + res.status);
             const el = (await res.json()).elevation;
-            const eye = homeElev + 2;
             let maxAng = -Infinity;
             for (let i = 0; i < dists.length; i++) {
-                const z = el[i];
-                if (typeof z !== 'number') continue;
-                const drop = dists[i] * dists[i] / (2 * R_EFF);   // earth-curvature drop, refraction-corrected
-                const ang = Math.atan2(z - eye - drop, dists[i]);
+                const z = el[i]; if (typeof z !== 'number') continue;
+                const drop = dists[i] * dists[i] / (2 * R_EFF);
+                const ang = Math.atan2(z - EYE - drop, dists[i]);
                 if (ang > maxAng) maxAng = ang;
             }
-            const dipSea = -Math.sqrt(2 * homeElev / R_EFF);       // never higher (sun-side) than the depressed sea horizon
-            return Math.max(maxAng, dipSea);
+            return Math.max(maxAng, -Math.sqrt(2 * EYE / R_EFF));
         }
-
-        // Time on `date` when the sun's true centre altitude meets the apparent skyline.
         function solveCrossing(date, skylineRad, evening) {
             const noon = getTimes(date, HOME.lat, HOME.lon).solarNoon.getTime();
             const target = skylineRad - refractionRad(skylineRad * 180 / PI) - SUN_RADIUS;
-            let lo = evening ? noon : noon - 12 * 3600000;
-            let hi = evening ? noon + 12 * 3600000 : noon;
+            let lo = evening ? noon : noon - 12 * 3600000, hi = evening ? noon + 12 * 3600000 : noon;
             for (let i = 0; i < 42; i++) {
                 const mid = (lo + hi) / 2;
                 const alt = getPosition(new Date(mid), HOME.lat, HOME.lon).altitude;
-                const ahead = evening ? (alt > target) : (alt < target);
-                if (ahead) lo = mid; else hi = mid;
+                if (evening ? (alt > target) : (alt < target)) lo = mid; else hi = mid;
             }
             return new Date((lo + hi) / 2);
         }
-
         async function terrainEvent(date, evening) {
             const g = getTimes(date, HOME.lat, HOME.lon);
-            let t = evening ? g.sunset : g.sunrise;
-            let bearing = sunBearingDeg(t);
+            let t = evening ? g.sunset : g.sunrise, bearing = sunBearingDeg(t);
             for (let iter = 0; iter < 3; iter++) {
                 const sky = await horizonAlongBearing(bearing);
                 t = solveCrossing(date, sky, evening);
-                const b2 = sunBearingDeg(t);
-                const diff = Math.abs(((b2 - bearing + 540) % 360) - 180);
+                const b2 = sunBearingDeg(t), diff = Math.abs(((b2 - bearing + 540) % 360) - 180);
                 bearing = b2;
                 if (diff < 0.6) break;
             }
             return t;
         }
 
-        /* ---- Render ---- */
+        /* ---------- Panel ---------- */
         const pad = n => String(n).padStart(2, '0');
-        const hm  = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+        const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+        const hmCard = d => d.getHours() + ':' + pad(d.getMinutes());   // card label style, e.g. "5:56"
         const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)); return Math.floor(m / 60) + ' h ' + pad(m % 60) + ' min'; };
-        const row = txt => `<div class="si-row">${txt}</div>`;
+        const rowHtml = txt => `<div class="si-row">${txt}</div>`;
         const elRows = document.getElementById('si-rows');
-        const elMoon = document.getElementById('moon-glyph');
 
         const terr = { key: '', sunrise: null, sunset: null };
         let terrInflight = false, terrCooldown = 0;
 
         function render() {
-            const now = new Date();
-            const g = getTimes(now, HOME.lat, HOME.lon);
-            const sunrise = terr.sunrise || g.sunrise;
-            const sunset  = terr.sunset  || g.sunset;
+            const now = new Date(), g = getTimes(now, HOME.lat, HOME.lon);
+            const sunrise = terr.sunrise || g.sunrise, sunset = terr.sunset || g.sunset;
             const isDay = now >= sunrise && now <= sunset;
-
-            const rows = [row('Day length ' + dur(sunset - sunrise))];
+            const rows = [rowHtml('Day length ' + dur(sunset - sunrise))];
             if (isDay) {
-                rows.push(row('Golden hour ' + hm(g.goldenHour)));
-                rows.push(row('Sunset ' + hm(sunset)));
-                elMoon.style.display = 'none';
+                rows.push(rowHtml('Golden hour ' + hm(g.goldenHour)));
+                rows.push(rowHtml('Sunset ' + hm(sunset)));
             } else {
-                const mi = getMoonIllumination(now), nm = moonName(mi.phase)[1];
-                rows.push(row(nm + ' · ' + Math.round(mi.fraction * 100) + ' %'));
-                const nextRise = now < sunrise ? sunrise : getTimes(new Date(now.getTime() + dayMs), HOME.lat, HOME.lon).sunrise;
-                rows.push(row('Sunrise ' + hm(nextRise)));
-                elMoon.textContent = moonName(mi.phase)[0];
-                elMoon.style.display = 'block';
+                const mi = getMoonIllumination(now);
+                rows.push(rowHtml(moonName(mi.phase) + ' · ' + Math.round(mi.fraction * 100) + ' %'));
+                const nextRise = now < sunrise ? sunrise : (terr.sunrise || getTimes(new Date(now.getTime() + dayMs), HOME.lat, HOME.lon).sunrise);
+                rows.push(rowHtml('Sunrise ' + hm(nextRise)));
             }
             elRows.innerHTML = rows.join('');
         }
-
         async function ensureTerrain() {
             const key = new Date().toDateString();
-            if (terr.key === key && terr.sunset) return;     // already have today's
+            if (terr.key === key && terr.sunset) return;
             if (terrInflight || Date.now() < terrCooldown) return;
             terrInflight = true;
             try {
-                const r0 = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${HOME.lat}&longitude=${HOME.lon}`);
-                if (r0.ok) { const e0 = (await r0.json()).elevation; if (Array.isArray(e0) && typeof e0[0] === 'number') homeElev = e0[0]; }
-                const today = new Date();
-                const g = getTimes(today, HOME.lat, HOME.lon);
-                // Terrain correction for SUNSET only — that's the "sun behind the western
-                // hills" case. Sunrise stays astronomical (the eastern slope the house sits
-                // on makes a near-field terrain sunrise unreliable).
+                const today = new Date(), g = getTimes(today, HOME.lat, HOME.lon);
+                let sr = await terrainEvent(today, false);
                 let ss = await terrainEvent(today, true);
-                if (Math.abs(ss - g.sunset) > 90 * 60000) ss = g.sunset;   // guard against artefacts
-                terr.key = key; terr.sunrise = null; terr.sunset = ss;
-                if (window.__sky) window.__sky.terrain = { homeElev, sunset: ss, geomSunset: g.sunset };
+                if (Math.abs(sr - g.sunrise) > 180 * 60000) sr = g.sunrise;   // guard against artefacts
+                if (Math.abs(ss - g.sunset)  > 90  * 60000) ss = g.sunset;
+                terr.key = key; terr.sunrise = sr; terr.sunset = ss;
+                if (window.__sky) window.__sky.terrain = { sunrise: sr, sunset: ss, geom: { sunrise: g.sunrise, sunset: g.sunset } };
                 render();
             } catch (err) {
-                terrCooldown = Date.now() + 60000;           // back off a minute; geometric times shown meanwhile
+                terrCooldown = Date.now() + 60000;
                 if (window.__sky) window.__sky.terrainError = String(err);
-            } finally {
-                terrInflight = false;
+            } finally { terrInflight = false; }
+        }
+
+        /* ---------- Scene overlay: moon orbit + disc, terrain sun markers ---------- */
+        const SVGNS = 'http://www.w3.org/2000/svg';
+        const eng = () => window.__heliosEngine;
+        const safe = fn => { try { return fn(); } catch (e) { return null; } };
+
+        // Place body on the card's sky dome (radius 40·arcScale m) and project to screen px.
+        function project(E, azN, alt) {
+            const c = 40 * E._sunArcScale(), cl = Math.cos(alt);
+            const east = c * cl * Math.sin(azN), north = c * cl * Math.cos(azN), h = c * Math.sin(alt);
+            const lon = E.homeLon + east / (111320 * Math.cos(E.homeLat * rad)), lat = E.homeLat + north / 111320;
+            const p = E._projectScenePoint(lon, lat, h);
+            return p ? { x: p.x, y: p.y, alt } : null;
+        }
+        const projMoonAt = (E, date) => { const m = moonPosition(date); return project(E, m.azN, m.alt); };
+        function projSunAt(E, date) {                 // sun screen pos at an arbitrary time (terrain markers)
+            const sp = E._sunSpherePoint(date); if (!sp) return null;
+            const pr = E._projectScenePoint(sp.lon, sp.lat, sp.altitudeM);
+            return pr ? { x: pr.x, y: pr.y } : null;
+        }
+
+        let layer, orbitAbove, orbitBelow, moonGlow, moonDisc, riseMark, setMark, attached = false;
+        function mkMarker(icon) {
+            const d = document.createElement('div');
+            d.className = 'helios-terr-marker';
+            d.style.cssText = 'position:absolute;transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:3px;color:#ffc107;pointer-events:none;font:600 12px/1 Inter,Roboto,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.75);';
+            d.innerHTML = `<iconify-icon icon="${icon}" style="font-size:16px"></iconify-icon><span class="t"></span>`;
+            return d;
+        }
+        function ensureOverlay() {
+            if (attached && layer && layer.isConnected) return true;
+            const card = document.getElementById('helios-demo-host').querySelector('helios-card');
+            const haCard = card && card.shadowRoot && card.shadowRoot.querySelector('ha-card');
+            if (!haCard) return false;
+            layer = document.createElementNS(SVGNS, 'svg');
+            layer.setAttribute('class', 'helios-moon-layer');
+            layer.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
+            orbitBelow = document.createElementNS(SVGNS, 'path');
+            orbitBelow.setAttribute('fill', 'none'); orbitBelow.setAttribute('stroke', 'rgba(200,214,235,0.30)');
+            orbitBelow.setAttribute('stroke-width', '1'); orbitBelow.setAttribute('stroke-dasharray', '0.5 6'); orbitBelow.setAttribute('stroke-linecap', 'round');
+            orbitAbove = document.createElementNS(SVGNS, 'path');
+            orbitAbove.setAttribute('fill', 'none'); orbitAbove.setAttribute('stroke', 'rgba(206,219,240,0.55)');
+            orbitAbove.setAttribute('stroke-width', '1.4'); orbitAbove.setAttribute('stroke-dasharray', '6 5'); orbitAbove.setAttribute('stroke-linecap', 'round');
+            moonGlow = document.createElementNS(SVGNS, 'circle'); moonGlow.setAttribute('r', '15'); moonGlow.setAttribute('fill', 'rgba(208,222,245,0.16)');
+            moonDisc = document.createElementNS(SVGNS, 'circle'); moonDisc.setAttribute('r', '8.5'); moonDisc.setAttribute('fill', '#e2e8f3');
+            layer.append(orbitBelow, orbitAbove, moonGlow, moonDisc);
+            haCard.appendChild(layer);
+            riseMark = mkMarker('mdi:weather-sunset-up'); setMark = mkMarker('mdi:weather-sunset-down');
+            haCard.append(riseMark, setMark);
+            attached = true;
+            return true;
+        }
+
+        // The moon's daily orbit is camera-independent; cache its dome points, re-project per frame.
+        let orbitCache = { key: '', pts: [] };
+        function ensureOrbitCache(E) {
+            const start = new Date(); start.setHours(0, 0, 0, 0);
+            const key = start.toDateString() + '|' + Math.round(E._sunArcScale() * 100);
+            if (orbitCache.key === key) return;
+            const N = 96, step = dayMs / N, pts = [];
+            for (let i = 0; i <= N; i++) { const m = moonPosition(new Date(start.getTime() + i * step)); pts.push({ azN: m.azN, alt: m.alt }); }
+            orbitCache = { key, pts };
+        }
+        const ok = v => v && isFinite(v.x) && isFinite(v.y) && Math.abs(v.x) < 9000 && Math.abs(v.y) < 9000;
+        function drawOrbit(E) {
+            ensureOrbitCache(E);
+            let dA = '', dB = '', penA = false, penB = false;
+            for (const q of orbitCache.pts) {
+                const p = project(E, q.azN, q.alt);
+                if (!ok(p)) { penA = penB = false; continue; }
+                const xy = p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+                if (q.alt > 0) { dA += (penA ? 'L' : 'M') + xy + ' '; penA = true; penB = false; }
+                else           { dB += (penB ? 'L' : 'M') + xy + ' '; penB = true; penA = false; }
             }
+            orbitAbove.setAttribute('d', dA); orbitBelow.setAttribute('d', dB);
+        }
+        function drawDisc(E) {
+            const p = projMoonAt(E, new Date());
+            const show = ok(p) && p.alt > 0;
+            for (const el of [moonDisc, moonGlow]) el.style.display = show ? '' : 'none';
+            if (show) { for (const el of [moonDisc, moonGlow]) { el.setAttribute('cx', p.x.toFixed(1)); el.setAttribute('cy', p.y.toFixed(1)); } }
+        }
+        function placeMarker(mark, pt, txt) {
+            if (ok(pt)) { mark.style.left = pt.x.toFixed(1) + 'px'; mark.style.top = pt.y.toFixed(1) + 'px'; mark.style.display = 'flex'; mark.querySelector('.t').textContent = txt; }
+            else mark.style.display = 'none';
+        }
+        function drawMarkers(E) {
+            const g = getTimes(new Date(), HOME.lat, HOME.lon);
+            const sr = terr.sunrise || g.sunrise, ss = terr.sunset || g.sunset;
+            placeMarker(riseMark, projSunAt(E, sr), hmCard(sr));
+            placeMarker(setMark,  projSunAt(E, ss), hmCard(ss));
+        }
+
+        let lastB = null, lastMin = -1;
+        function frame() {
+            const E = eng();
+            if (E && E._renderer && ensureOverlay()) {
+                const b = safe(() => E.getCameraBearing());
+                const min = Math.floor(Date.now() / 60000);
+                if (b !== lastB || min !== lastMin) {
+                    drawOrbit(E); drawDisc(E); drawMarkers(E);
+                    lastB = b; lastMin = min;
+                }
+            }
+            requestAnimationFrame(frame);
         }
 
         render();
         ensureTerrain();
         setInterval(() => { render(); ensureTerrain(); }, 1000);
-        window.__sky = { getTimes, getPosition, getMoonIllumination, moonName, horizonAlongBearing, terrainEvent };
+        requestAnimationFrame(frame);
+        window.__sky = { getTimes, getPosition, getMoonIllumination, moonName, moonPosition, terrainEvent, project, projMoonAt };
     </script>
 </body>
 </html>
