@@ -508,7 +508,7 @@ function buildMockHass(initialLang)
         },
         themes:   { darkMode: false, default_theme: 'default', themes: {} },
         language: initialLang,
-        locale:   { language: initialLang, number_format: 'language', time_format: '12', date_format: 'DMY', first_weekday: 'language' },
+        locale:   { language: initialLang, number_format: 'language', time_format: '24', date_format: 'DMY', first_weekday: 'language' },
         localize: (k) => k,
         formatEntityState:           (so) => so?.state ?? '',
         formatEntityAttributeValue:  (_so, attr) => attr,
