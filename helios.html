@@ -330,28 +330,38 @@
         }
 
         // The moon's daily orbit is camera-independent; cache its dome points, re-project per frame.
+        // Sample one full LUNAR day (~24 h 50 min, not 24 h) so the ellipse closes seamlessly.
+        const LUNAR_DAY = dayMs * 1.0350501;
         let orbitCache = { key: '', pts: [] };
         function ensureOrbitCache(E) {
             const start = new Date(); start.setHours(0, 0, 0, 0);
             const key = start.toDateString() + '|' + Math.round(E._sunArcScale() * 100);
             if (orbitCache.key === key) return;
-            const N = 96, step = dayMs / N, pts = [];
+            const N = 192, step = LUNAR_DAY / N, pts = [];
             for (let i = 0; i <= N; i++) { const m = moonPosition(new Date(start.getTime() + i * step)); pts.push({ azN: m.azN, alt: m.alt }); }
+            pts.push(pts[0]);   // the track is a slow spiral; bridge the tiny seam so the ellipse closes
             orbitCache = { key, pts };
         }
         const ok = v => v && isFinite(v.x) && isFinite(v.y) && Math.abs(v.x) < 20000 && Math.abs(v.y) < 20000;
         function drawOrbit(E, ox, oy) {
             ensureOrbitCache(E);
-            let dA = '', dB = '', dD = '', pA = false, pB = false, pD = false;
+            // Draw per SEGMENT: each prev→curr piece goes into exactly one band's path
+            // (chosen by its midpoint altitude), so band changes never leave gaps.
+            const d = { A: '', B: '', D: '' }, tail = { A: '', B: '', D: '' };
+            let prev = null, prevAlt = 0;
             for (const q of orbitCache.pts) {
                 const p = project(E, q.azN, q.alt);
-                if (!ok(p)) { pA = pB = pD = false; continue; }
+                if (!ok(p)) { prev = null; continue; }
                 const xy = (ox + p.x).toFixed(1) + ' ' + (oy + p.y).toFixed(1);
-                if (q.alt > 0)          { dA += (pA ? 'L' : 'M') + xy + ' '; pA = true; pB = pD = false; }
-                else if (q.alt > -0.21) { dB += (pB ? 'L' : 'M') + xy + ' '; pB = true; pA = pD = false; }
-                else                    { dD += (pD ? 'L' : 'M') + xy + ' '; pD = true; pA = pB = false; }
+                if (prev) {
+                    const mid = (prevAlt + q.alt) / 2;
+                    const band = mid > 0 ? 'A' : mid > -0.21 ? 'B' : 'D';
+                    d[band] += (tail[band] === prev ? 'L' : 'M' + prev + ' L') + xy + ' ';
+                    tail[band] = xy;
+                }
+                prev = xy; prevAlt = q.alt;
             }
-            orbitAbove.setAttribute('d', dA); orbitBelow.setAttribute('d', dB); orbitDeep.setAttribute('d', dD);
+            orbitAbove.setAttribute('d', d.A); orbitBelow.setAttribute('d', d.B); orbitDeep.setAttribute('d', d.D);
         }
 
         // Own sun arc points (camera-independent dome points + a per-time "visible above terrain" flag).
